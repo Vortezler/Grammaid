@@ -1,0 +1,37 @@
+{
+  "name": "grammaid",
+  "version": "1.0.0",
+  "description": "Offline Grammarly-style writing assistant for Waterfox",
+  "scripts": {
+    "test": "vitest run",
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "dev": "npm run build && node scripts/dev.mjs",
+    "lint": "eslint . && tsc --noEmit",
+    "build:wordnet": "node scripts/build-wordnet.mjs",
+    "calibrate": "node scripts/calibrate.mjs",
+    "package": "npm run build && node scripts/package-xpi.mjs",
+    "harness": "node scripts/harness.mjs"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
+    "compromise": "^14.20.0",
+    "harper.js": "^3.0.0",
+    "preact": "^11.2.0"
+  },
+  "devDependencies": {
+    "@types/firefox-webext-browser": "^143.0.1",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.14.0",
+    "jsdom": "^31.0.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0",
+    "web-ext": "^10.8.0",
+    "wordnet-db": "^3.1.14"
+  },
+  "private": true
+}

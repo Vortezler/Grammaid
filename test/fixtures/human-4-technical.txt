@@ -1,0 +1,11 @@
+Notes from debugging the cache thing, mostly so I don't redo this in six months.
+
+Symptom: p99 latency on /search jumped from ~80ms to 900ms every day around 02:00 UTC, lasted ten minutes, then recovered by itself. No deploys at that time. No traffic spike either, which threw me for a day.
+
+What it wasn't: GC (heap graphs flat), the database (slow query log empty), noisy neighbors (moved the pod, same thing).
+
+What it was: all our cache keys were written by the nightly warm-up job with the same 24h TTL. So they all expired within the same couple of seconds, and every request stampeded the backend at once. Classic thundering herd, and I still didn't see it because the warm-up job lives in a different repo that I'd forgotten existed.
+
+Fix: jitter the TTL, 24h plus or minus a random 0-90 min. Also added a single-flight lock per key so only one request rebuilds an entry and the rest wait. Latency spike is gone as of Tuesday.
+
+Still todo: the warm-up job has no owner. Somebody should own it. Probably me now, unfortunately.

@@ -1,0 +1,78 @@
+{
+  "manifest_version": 2,
+  "name": "Grammaid",
+  "version": "1.0.0",
+  "description": "Offline writing assistant: grammar, spelling, style, synonyms, rephrasing, AI-likelihood check and spelling stats. Nothing you type leaves your machine.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "grammaid@extension.local",
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "menus",
+    "clipboardWrite",
+    "<all_urls>",
+    "https://huggingface.co/*",
+    "https://*.huggingface.co/*",
+    "https://*.hf.co/*"
+  ],
+  "content_security_policy": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+  "background": {
+    "page": "background.html",
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle",
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "browser_action": {
+    "default_title": "Grammaid",
+    "default_icon": "icons/icon.svg"
+  },
+  "sidebar_action": {
+    "default_panel": "sidebar.html",
+    "default_title": "Grammaid",
+    "default_icon": "icons/icon.svg",
+    "open_at_install": false
+  },
+  "commands": {
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Alt+Shift+G"
+      },
+      "description": "Toggle the Grammaid sidebar"
+    },
+    "synonyms": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Synonyms for the selected word"
+    },
+    "rephrase": {
+      "suggested_key": {
+        "default": "Alt+Shift+R"
+      },
+      "description": "Rephrase the selected text"
+    }
+  }
+}

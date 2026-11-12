@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Grammaid playground</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 24px auto 240px; padding: 0 16px; color: #222; background: #fff; }
+      h1 { font-size: 20px; }
+      h2 { font-size: 14px; margin: 24px 0 6px; color: #555; font-weight: 600; }
+      textarea, input, [contenteditable] { font: inherit; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #bbb; border-radius: 6px; background: #fff; color: #222; }
+      textarea { height: 110px; }
+      [contenteditable] { min-height: 80px; }
+      iframe { width: 100%; height: 130px; border: 1px solid #bbb; border-radius: 6px; }
+      p.read { background: #f4f4f4; padding: 10px 12px; border-radius: 6px; }
+      code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <h1>Grammaid playground</h1>
+    <p>Type <code>I definately recieved teh letter</code> into each field. Underlines should appear about a second after you stop typing.</p>
+
+    <h2>1. Textarea</h2>
+    <textarea id="ta" placeholder="Textarea">I definately recieved teh letter. It was a very good letter, and in order to reply I made a decision to write back.</textarea>
+
+    <h2>2. Text input</h2>
+    <input id="in" type="text" placeholder="Text input" value="I definately recieved teh letter" />
+
+    <h2>3. Contenteditable</h2>
+    <div id="ce" contenteditable="true">I <b>definately</b> recieved teh letter.<br />The report was written by the team in order to explain the end result.</div>
+
+    <h2>4. React-style controlled input (value is re-applied from state on every input event)</h2>
+    <input id="controlled" type="text" placeholder="Controlled input" />
+    <p id="controlled-state" style="font-size: 12px; color: #666">state: ""</p>
+
+    <h2>5. Iframe containing a contenteditable</h2>
+    <iframe id="frame" src="playground-frame.html" title="Editable frame"></iframe>
+
+    <h2>6. Fields that must never be checked</h2>
+    <input type="password" placeholder="Password (never checked)" value="definately" />
+    <input type="text" spellcheck="false" placeholder='spellcheck="false" (never checked)' value="definately" style="margin-top: 6px" />
+
+    <h2>7. Read-only page text (select a word for Synonyms, or a sentence for Rephrase)</h2>
+    <p class="read">It was an important decision for the running team. Due to the fact that the weather was bad, the game was cancelled by the organizers at the last minute.</p>
+
+    <script>
+      // A minimal stand-in for a framework-controlled input: the DOM value is always overwritten
+      // from "state", so a fix only sticks if the page saw a real input event.
+      (function () {
+        var el = document.getElementById('controlled');
+        var out = document.getElementById('controlled-state');
+        var state = 'I definately recieved teh letter';
+        function render() {
+          if (el.value !== state) el.value = state;
+          out.textContent = 'state: ' + JSON.stringify(state);
+        }
+        el.addEventListener('input', function () {
+          state = el.value;
+          render();
+        });
+        setInterval(render, 300);
+        render();
+      })();
+    </script>
+  </body>
+</html>
