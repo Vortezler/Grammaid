@@ -74,7 +74,7 @@ grammar and style checking never need a download.
 
 ## Development
 
-Requires Node 20 or newer.
+Requires Node 22.12 or newer (24 recommended).
 
 ```bash
 npm install

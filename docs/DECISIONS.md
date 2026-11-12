@@ -28,6 +28,7 @@ Harper + custom rules, accepted-fix-only spelling stats, and so on) are not repe
   issues are shifted by the edit instead of being left at stale positions (`shiftIssues`).
 - **`data_collection_permissions: none`** in the manifest, which newer Firefox versions ask for.
 - **Tests beyond the plan's list**: lint pipeline, diff, rephrase filters, settings, apply fallback.
+- CI runs on Node 24, not the plan's Node 20: the installed vitest 5 and jsdom 31 need Node 22.12 or newer.
 - The repo's local git config uses the GitHub no-reply address for commits, because the global
   git email on the build machine was a placeholder.
 
