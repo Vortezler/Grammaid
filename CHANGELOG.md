@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+
+- **Automatic scanning.** When Grammaid is on in a tab it now checks every text field on the
+  page, including fields added later, instead of only the field that has focus. Underlines stay
+  when a field loses focus.
+- **Off by default, on where you choose.** The list of sites where Grammaid was switched off is
+  replaced by a list of sites where it runs. Anywhere else, click the toolbar button to turn it
+  on for the current tab (until the tab is closed). The button's badge shows `on`.
+- The toolbar button no longer toggles the sidebar; use `Alt+Shift+G` or View → Sidebar.
+- Settings shows whether Grammaid is running in the current tab, with one-click "Turn on in this
+  tab" and "Always check this site".
+- Upgrading from 1.0.0: the old "sites where Grammaid is off" list is dropped, and Grammaid is
+  off everywhere until you add sites or click the button.
+
 ## 1.0.0
 
 First release.

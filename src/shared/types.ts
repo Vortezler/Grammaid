@@ -116,6 +116,8 @@ export type Request =
   | { type: 'model-load' }
   | { type: 'model-clear' }
   | { type: 'open-sidebar' }
+  | { type: 'get-activation' }
+  | { type: 'toggle-tab' }
   | { type: 'get-page-text'; source: 'field' | 'selection' }
   | { type: 'export-data' }
   | { type: 'import-data'; data: ExportBundle };
@@ -135,9 +137,21 @@ export interface ResponseMap {
   'model-load': ModelStatus;
   'model-clear': ModelStatus;
   'open-sidebar': { opened: boolean };
+  'get-activation': Activation;
+  'toggle-tab': Activation;
   'get-page-text': PageText | null;
   'export-data': ExportBundle;
   'import-data': null;
+}
+
+/** Whether Grammaid scans the current tab, and why. */
+export interface Activation {
+  active: boolean;
+  /** The tab's site is on the user's list. */
+  site: boolean;
+  /** The user switched Grammaid on for this tab (toolbar button). */
+  tab: boolean;
+  host: string;
 }
 
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -145,6 +159,7 @@ export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 /** Messages the background sends to a tab's content script. */
 export type ContentRequest =
   | { type: 'run-action'; action: 'synonyms' | 'rephrase' }
+  | { type: 'activation-changed'; activation: Activation; announce: boolean }
   | { type: 'get-page-text'; source: 'field' | 'selection' };
 
 /** Typed wrapper around runtime.sendMessage; never throws. */

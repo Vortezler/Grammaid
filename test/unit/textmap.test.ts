@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildTextMap, editingHost, isTextControl, offsetFromPosition, rangeFromOffsets, readField } from '../../src/content/textmap';
 import { applyReplacement } from '../../src/content/apply';
-import { findEditable, shiftIssues } from '../../src/content/field-watcher';
+import { findEditable, findFields, shiftIssues } from '../../src/content/field-watcher';
 import { trimRange } from '../../src/content/selection-actions';
 import type { Issue } from '../../src/shared/types';
 
@@ -106,6 +106,29 @@ describe('field detection', () => {
     expect(editingHost(document.getElementById('inner'))).toBe(root);
     expect(findEditable(document.getElementById('inner'))).toBe(root);
     expect(editingHost(document.body)).toBeNull();
+  });
+});
+
+describe('findFields (auto-scan)', () => {
+  // jsdom does no layout, so give "visible" elements a client rect.
+  const show = (el: Element) => {
+    el.getClientRects = () => [{ width: 10, height: 10 }] as unknown as DOMRectList;
+    return el;
+  };
+
+  it('finds every checkable, visible field once and skips the rest', () => {
+    document.body.innerHTML =
+      '<textarea id="a"></textarea><input id="b" type="text"><input id="c" type="password"><input id="d" type="text" readonly>' +
+      '<div id="e" contenteditable="true"><p><span contenteditable="true" id="inner">x</span></p></div>' +
+      '<textarea id="hidden"></textarea><input id="f" type="email"><input id="g" type="checkbox">';
+    for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g']) show(document.getElementById(id)!);
+    expect(findFields(document).map((el) => el.id)).toEqual(['a', 'b', 'e', 'f']);
+  });
+
+  it('respects the field limit', () => {
+    document.body.innerHTML = Array.from({ length: 10 }, (_, i) => `<textarea id="t${i}"></textarea>`).join('');
+    document.querySelectorAll('textarea').forEach(show);
+    expect(findFields(document, 3)).toHaveLength(3);
   });
 });
 

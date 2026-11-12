@@ -150,6 +150,8 @@ label.field { display: flex; flex-direction: column; gap: 0.25rem; }
 .issue:last-child { padding-bottom: 0; }
 .dot { display: inline-block; width: 0.4375rem; height: 0.4375rem; border-radius: 50%; background: var(--red); margin-right: 0.375rem; vertical-align: 0.05em; }
 .dot.style { background: var(--blue); }
+.dot.teal { background: var(--teal); }
+.dot.off { background: var(--fill-press); }
 .quote { font-weight: 600; overflow-wrap: anywhere; }
 mark.spelling, mark.grammar { background: none; color: inherit; text-decoration: underline wavy var(--red); text-underline-offset: 3px; }
 mark.style { background: none; color: inherit; text-decoration: underline wavy var(--blue); text-underline-offset: 3px; }

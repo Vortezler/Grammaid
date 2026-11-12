@@ -32,6 +32,25 @@ Harper + custom rules, accepted-fix-only spelling stats, and so on) are not repe
 - The repo's local git config uses the GitHub no-reply address for commits, because the global
   git email on the build machine was a placeholder.
 
+## 1.1.0: automatic scanning, opt-in per site or per tab
+
+- **Opt-in replaces opt-out.** `disabledSites` became `enabledSites`. Nothing is scanned unless
+  the tab's site is listed or the user clicked the toolbar button in that tab. The decision is
+  made in the background page (`src/background/activation.ts`) from the tab's top-level URL, so
+  iframes follow the page they are in rather than their own hostname.
+- **Per-tab activation lives in memory.** It lasts for the life of the tab, survives navigation
+  inside it, and is forgotten when the tab closes or the browser restarts. Nothing is stored.
+- **The toolbar button toggles the tab instead of the sidebar.** The request was "activated
+  (clicked on)". The sidebar keeps `Alt+Shift+G` and the View → Sidebar menu.
+- **All fields, not just the focused one.** The watcher registers every visible checkable field
+  and uses a MutationObserver (debounced 500 ms) to pick up new ones. First lints are staggered
+  40 ms apart. Capped at 40 fields per frame so huge forms and grids cannot stall a page.
+  Fields scrolled out of view are skipped when painting.
+- **Explicit actions ignore the gate.** Right-click Synonyms/Rephrase and the shortcuts work on
+  any page; the floating *Syn* button appears only where Grammaid is on.
+- **Hidden fields are not checked** (no layout box). They are picked up when the page next
+  changes its DOM, or when they receive focus.
+
 ## Detector calibration
 
 `npm run calibrate` runs the real `Xenova/distilgpt2` (85 MB quantized file) over the twelve texts

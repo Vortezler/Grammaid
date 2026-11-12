@@ -2,7 +2,8 @@ export type DialectName = 'American' | 'British' | 'Canadian' | 'Australian';
 
 export interface Settings {
   enabled: boolean;
-  disabledSites: string[];
+  /** Sites (hostnames) where Grammaid checks every text field automatically. */
+  enabledSites: string[];
   dialect: DialectName;
   categories: { spelling: boolean; grammar: boolean; style: boolean };
   rewriteModelId: string;
@@ -13,7 +14,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
-  disabledSites: [],
+  enabledSites: [],
   dialect: 'American',
   categories: { spelling: true, grammar: true, style: true },
   rewriteModelId: 'Xenova/flan-t5-small',
@@ -34,7 +35,7 @@ export function normalizeSettings(raw: unknown): Settings {
   const dialects: DialectName[] = ['American', 'British', 'Canadian', 'Australian'];
   return {
     enabled: typeof s.enabled === 'boolean' ? s.enabled : d.enabled,
-    disabledSites: [...new Set(clean(s.disabledSites).map((x) => x.toLowerCase()))],
+    enabledSites: [...new Set(clean(s.enabledSites).map(cleanHost).filter(Boolean))],
     dialect: dialects.includes(s.dialect as DialectName) ? (s.dialect as DialectName) : d.dialect,
     categories: {
       spelling: s.categories?.spelling ?? true,
@@ -51,8 +52,29 @@ export function normalizeSettings(raw: unknown): Settings {
   };
 }
 
-/** True when checking is switched off for this hostname (exact match or a parent domain). */
-export function isSiteDisabled(settings: Settings, hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  return settings.disabledSites.some((site) => host === site || host.endsWith('.' + site));
+/** Reduces whatever the user typed ("https://Example.com/path") to a bare hostname. */
+export function cleanHost(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z]+:\/\//, '')
+    .replace(/[/?#].*$/, '')
+    .replace(/:\d+$/, '')
+    .replace(/^www\./, '');
+}
+
+/** True when this hostname is on the user's list (exact match or a subdomain of a listed site). */
+export function isSiteEnabled(settings: Settings, hostname: string): boolean {
+  const host = cleanHost(hostname);
+  if (!host) return false;
+  return settings.enabledSites.some((site) => host === site || host.endsWith('.' + site));
+}
+
+/** Hostname of a URL, or '' for pages without one (about:, file:, ...). */
+export function hostOf(url: string | undefined): string {
+  try {
+    return url ? new URL(url).hostname : '';
+  } catch {
+    return '';
+  }
 }

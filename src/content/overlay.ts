@@ -1,5 +1,5 @@
-// One fixed, click-through layer over the page (shadow DOM) holding underlines, the issue pill,
-// cards/popovers and toasts. The page's own DOM and text are never modified.
+// One fixed, click-through layer over the page (shadow DOM) holding underlines for every checked
+// field, the issue pill, cards/popovers and toasts. The page's own DOM and text are never modified.
 import type { Issue } from '../shared/types';
 import { Mirror, type LocalRect } from './mirror';
 import { isTextControl, rangeFromOffsets, type Editable, type TextMap } from './textmap';
@@ -12,7 +12,15 @@ export interface Box {
   bottom: number;
 }
 
+interface Layer {
+  issues: Issue[];
+  map: TextMap | null;
+  /** Cached geometry for text controls; null means "measure again". */
+  local: LocalRect[][] | null;
+}
+
 interface Painted {
+  field: Editable;
   issue: Issue;
   boxes: Box[];
 }
@@ -37,16 +45,14 @@ export class Overlay {
   private mirror: Mirror;
   private pool: HTMLDivElement[] = [];
 
-  private field: Editable | null = null;
-  private map: TextMap | null = null;
-  private issues: Issue[] = [];
-  private local: LocalRect[][] | null = null; // cached geometry for text controls
+  private layers = new Map<Editable, Layer>();
   private painted: Painted[] = [];
-  private hovered = -1;
+  private hovered: Issue | null = null;
   private frame = 0;
   private resizeObserver: ResizeObserver | null = null;
   private surface: { el: HTMLElement; onClose?: () => void } | null = null;
-  private pillCount: number | null = null;
+  private pillField: Editable | null = null;
+  private pillCount = 0;
   private onPill: (() => void) | null = null;
 
   constructor() {
@@ -66,6 +72,7 @@ export class Overlay {
     this.root = h('div', { class: 'root' }, this.highlight, this.lines, this.ui);
     this.shadow.appendChild(this.root);
     this.mirror = new Mirror(this.shadow);
+    if (typeof ResizeObserver !== 'undefined') this.resizeObserver = new ResizeObserver(() => this.invalidate());
 
     window.addEventListener('scroll', this.schedule, { capture: true, passive: true });
     window.addEventListener('resize', this.invalidate, { passive: true });
@@ -105,37 +112,35 @@ export class Overlay {
 
   // ---- underlines ---------------------------------------------------------------------------
 
-  setField(field: Editable | null) {
-    if (field === this.field) return;
-    this.resizeObserver?.disconnect();
-    this.resizeObserver = null;
-    this.field = field;
-    this.issues = [];
-    this.local = null;
-    this.map = null;
-    this.hovered = -1;
-    if (field) {
+  /** Sets (or replaces) the issues drawn for one field. */
+  setFieldIssues(field: Editable, issues: Issue[], map: TextMap | null) {
+    if (!this.layers.has(field)) {
       this.mount();
-      if (typeof ResizeObserver !== 'undefined') {
-        this.resizeObserver = new ResizeObserver(this.invalidate);
-        this.resizeObserver.observe(field);
-      }
-    } else {
-      this.setPill(null);
+      this.resizeObserver?.observe(field);
     }
+    this.layers.set(field, { issues, map, local: null });
     this.schedule();
   }
 
-  setIssues(issues: Issue[], map: TextMap | null) {
-    this.issues = issues;
-    this.map = map;
-    this.local = null;
+  removeField(field: Editable) {
+    if (!this.layers.delete(field)) return;
+    this.resizeObserver?.unobserve(field);
+    if (this.pillField === field) this.setPill(null);
+    this.schedule();
+  }
+
+  /** Removes every underline and the pill (Grammaid switched off for this tab). */
+  clearFields() {
+    for (const field of this.layers.keys()) this.resizeObserver?.unobserve(field);
+    this.layers.clear();
+    this.hovered = null;
+    this.setPill(null);
     this.schedule();
   }
 
   /** Geometry changed (resize, font load): re-measure on the next frame. */
   invalidate = () => {
-    this.local = null;
+    for (const layer of this.layers.values()) layer.local = null;
     this.schedule();
   };
 
@@ -163,46 +168,48 @@ export class Overlay {
     };
   }
 
-  private measure(): Painted[] {
-    const el = this.field;
-    if (!el || !el.isConnected || this.issues.length === 0) return [];
+  private measureField(el: Editable, layer: Layer, out: Painted[]) {
+    if (!el.isConnected || layer.issues.length === 0) return;
     const clip = this.clipRect(el);
-    if (clip.right <= clip.left || clip.bottom <= clip.top) return [];
+    // Fields scrolled out of view cost nothing.
+    if (clip.right <= clip.left || clip.bottom <= clip.top) return;
     const visible = (b: Box) => b.right > clip.left && b.left < clip.right && b.bottom > clip.top + 2 && b.bottom <= clip.bottom + 3;
     const trim = (b: Box): Box => ({ ...b, left: Math.max(b.left, clip.left), right: Math.min(b.right, clip.right) });
 
     if (isTextControl(el)) {
-      this.local ??= this.mirror.measure(el, this.issues);
+      layer.local ??= this.mirror.measure(el, layer.issues);
       const origin = el.getBoundingClientRect();
       const ox = origin.left - el.scrollLeft;
       const oy = origin.top - el.scrollTop;
-      return this.issues.map((issue, i) => ({
-        issue,
-        boxes: (this.local?.[i] ?? [])
+      layer.issues.forEach((issue, i) => {
+        const boxes = (layer.local?.[i] ?? [])
           .map((r) => ({ left: ox + r.x, top: oy + r.y, right: ox + r.x + r.width, bottom: oy + r.y + r.height }))
           .filter(visible)
-          .map(trim),
-      }));
+          .map(trim);
+        if (boxes.length) out.push({ field: el, issue, boxes });
+      });
+      return;
     }
-    const map = this.map;
-    if (!map) return [];
-    return this.issues.map((issue) => {
+    const map = layer.map;
+    if (!map) return;
+    for (const issue of layer.issues) {
       const range = rangeFromOffsets(map, issue.start, issue.end);
-      const boxes = range
-        ? Array.from(range.getClientRects())
-            .filter((r) => r.width > 0 && r.height > 0)
-            .map(boxOf)
-            .filter(visible)
-            .map(trim)
-        : [];
-      return { issue, boxes };
-    });
+      if (!range) continue;
+      const boxes = Array.from(range.getClientRects())
+        .filter((r) => r.width > 0 && r.height > 0)
+        .map(boxOf)
+        .filter(visible)
+        .map(trim);
+      if (boxes.length) out.push({ field: el, issue, boxes });
+    }
   }
 
   private paint() {
-    this.painted = this.measure();
+    const painted: Painted[] = [];
+    for (const [field, layer] of this.layers) this.measureField(field, layer, painted);
+    this.painted = painted;
     let used = 0;
-    for (const p of this.painted) {
+    for (const p of painted) {
       for (const b of p.boxes) {
         let line = this.pool[used];
         if (!line) {
@@ -223,18 +230,15 @@ export class Overlay {
     this.paintPill();
   }
 
-  /** Index into the current issues of the underline at this viewport point, or -1. */
-  hitTest(x: number, y: number): number {
-    for (let i = 0; i < this.painted.length; i++) {
-      for (const b of this.painted[i].boxes) {
-        if (x >= b.left - 1 && x <= b.right + 1 && y >= b.top - 1 && y <= b.bottom + 5) return i;
+  /** The issue of `field` whose underline is at this viewport point, or null. */
+  hitTest(field: Editable, x: number, y: number): Issue | null {
+    for (const p of this.painted) {
+      if (p.field !== field) continue;
+      for (const b of p.boxes) {
+        if (x >= b.left - 1 && x <= b.right + 1 && y >= b.top - 1 && y <= b.bottom + 5) return p.issue;
       }
     }
-    return -1;
-  }
-
-  issueAt(index: number): Issue | null {
-    return this.painted[index]?.issue ?? null;
+    return null;
   }
 
   /** The on-screen box of an issue (its first line), used to anchor the card. */
@@ -242,14 +246,14 @@ export class Overlay {
     return this.painted.find((p) => p.issue === issue)?.boxes[0] ?? null;
   }
 
-  setHover(index: number) {
-    if (index === this.hovered) return;
-    this.hovered = index;
+  setHover(issue: Issue | null) {
+    if (issue === this.hovered) return;
+    this.hovered = issue;
     this.paintHover();
   }
 
   private paintHover() {
-    const p = this.painted[this.hovered];
+    const p = this.hovered ? this.painted.find((x) => x.issue === this.hovered) : undefined;
     const b = p?.boxes[0];
     if (!p || !b) {
       this.highlight.className = 'hl';
@@ -276,17 +280,19 @@ export class Overlay {
 
   // ---- pill ---------------------------------------------------------------------------------
 
-  setPill(count: number | null, onClick?: () => void) {
+  /** Shows the issue-count pill on one field (the focused one), or hides it with null. */
+  setPill(field: Editable | null, count = 0, onClick?: () => void) {
+    this.pillField = field;
     this.pillCount = count;
     this.onPill = onClick ?? null;
     this.schedule();
   }
 
   private paintPill() {
-    const el = this.field;
+    const el = this.pillField;
     const count = this.pillCount;
     const small = el && isTextControl(el) && el.tagName === 'INPUT';
-    if (!el || count === null || !el.isConnected || (small && count === 0)) {
+    if (!el || !el.isConnected || (small && count === 0)) {
       this.pill?.remove();
       this.pill = null;
       return;

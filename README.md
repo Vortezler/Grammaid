@@ -11,6 +11,9 @@ most. Nothing you type leaves your computer.
 
 ## Features
 
+- **Automatic scanning, only where you want it.** Grammaid is off by default. It checks every
+  text field in a tab (not just the one you are typing in) when the site is on your list, or
+  after you click the Grammaid toolbar button in that tab. See [Where it runs](#where-it-runs).
 - **Inline checking** in `<textarea>`, text/search/email inputs and `contenteditable` editors,
   including inside iframes. Red wavy underlines for spelling and grammar, blue for style. Click an
   underline for a card with fixes, "Add to dictionary" and "Ignore this". A small pill at the
@@ -30,11 +33,26 @@ most. Nothing you type leaves your computer.
   percentage of words flagged, per-sentence highlighting, and the signals behind the score.
 - **Spelling stats** (sidebar): a leaderboard of the words you misspell most. Select a word to see
   its top three misspellings. Export as JSON or CSV.
-- **Sidebar** (`Alt+Shift+G` or the toolbar button): Check, AI Check, Rewrite, Stats, Settings.
+- **Sidebar** (`Alt+Shift+G`, or View → Sidebar → Grammaid): Check, AI Check, Rewrite, Stats,
+  Settings.
+
+## Where it runs
+
+Grammaid does nothing on a page until you turn it on, in one of two ways:
+
+- **For one tab:** click the Grammaid toolbar button. Every text field in that tab is checked,
+  including fields the page adds later. The button's badge shows `on`. Click again to turn it
+  off. It stays on while you navigate in that tab and ends when you close the tab.
+- **For a site, always:** open the sidebar → Settings → *Where Grammaid runs*, and add the site
+  (or press *Always check example.com* while you are on it). Subdomains are included, so
+  `example.com` also covers `mail.example.com`.
+
+Synonyms and Rephrase from the right-click menu or the keyboard shortcuts work on any page,
+because you ask for them explicitly.
 
 ## Install in Waterfox
 
-1. Download `grammaid-1.0.0.xpi` from the [latest release](../../releases/latest).
+1. Download the `grammaid-<version>.xpi` file from the [latest release](../../releases/latest).
 2. In Waterfox: Menu → **Add-ons and themes** → gear icon → **Install Add-on From File…** → choose
    the `.xpi`.
 3. If Waterfox refuses the add-on because it is unsigned: open `about:config`, set
@@ -91,7 +109,7 @@ npm run build
 | `npm run harness` | Serves the built extension against `test/fixtures/playground.html` at `http://localhost:4173` in any browser, using a stand-in for the extension API. Good for UI work |
 | `npm test` | Unit tests (vitest + jsdom) |
 | `npm run lint` | ESLint and the TypeScript type check |
-| `npm run package` | Builds and writes `artifacts/grammaid-1.0.0.xpi` |
+| `npm run package` | Builds and writes `artifacts/grammaid-<version>.xpi` |
 | `npm run build:wordnet` | Regenerates `src/data/wordnet-synonyms.json` from WordNet |
 | `npm run calibrate` | Runs the real detector over `test/fixtures/*.txt` and prints the scores |
 
@@ -105,7 +123,8 @@ content script  ──messages──►  background page  ◄──messages─�
 - **Background page** (`src/background/`): the only place heavy work happens. Hosts Harper, the
   language models (Transformers.js on ONNX Runtime Web, single-threaded WASM), the synonym index,
   settings and the spelling-stats store.
-- **Content script** (`src/content/`): finds editable fields, maps text offsets to screen
+- **Content script** (`src/content/`): when the background says the tab is active, finds every
+  editable field (and watches for new ones), maps text offsets to screen
   positions, draws underlines in a click-through shadow-DOM overlay, shows the card and popovers,
   and applies fixes through `execCommand('insertText')` so undo and framework listeners keep
   working. It contains no engines and never modifies the page's own DOM text.

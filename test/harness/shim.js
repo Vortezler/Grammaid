@@ -22,14 +22,17 @@
     return v === undefined ? v : JSON.parse(JSON.stringify(v));
   };
 
-  function dispatch(roles, message) {
+  var actionListeners = [];
+  var TAB = { id: 1, url: location.href };
+
+  function dispatch(roles, message, sender) {
     return new Promise(function (resolve, reject) {
       var pending = false;
       listeners.forEach(function (l) {
         if (roles.indexOf(l.role) === -1 || pending) return;
         var out;
         try {
-          out = l.fn(clone(message), { id: 'harness' });
+          out = l.fn(clone(message), sender || {});
         } catch (_e) {
           return;
         }
@@ -51,7 +54,8 @@
           return location.origin + '/' + p.replace(/^\//, '');
         },
         sendMessage: function (message) {
-          return dispatch(['background'], message);
+          // Like the real API: content scripts have a sender tab, extension pages do not.
+          return dispatch(['background'], message, role === 'content' ? { tab: TAB } : {});
         },
         onMessage: {
           addListener: function (fn) {
@@ -97,8 +101,10 @@
       },
       tabs: {
         query: function () {
-          return Promise.resolve([{ id: 1, url: location.href }]);
+          return Promise.resolve([TAB]);
         },
+        onRemoved: { addListener: function () {} },
+        onUpdated: { addListener: function () {} },
         sendMessage: function (_id, message) {
           return dispatch(['content'], message);
         },
@@ -121,7 +127,24 @@
           },
         },
       },
-      browserAction: { onClicked: { addListener: function () {} } },
+      browserAction: {
+        onClicked: {
+          addListener: function (fn) {
+            actionListeners.push(fn);
+          },
+        },
+        setBadgeText: function (d) {
+          var b = document.getElementById('gh-badge');
+          if (b) b.textContent = d.text ? '[' + d.text + ']' : '[off]';
+          return Promise.resolve();
+        },
+        setTitle: function () {
+          return Promise.resolve();
+        },
+        setBadgeBackgroundColor: function () {
+          return Promise.resolve();
+        },
+      },
       sidebarAction: {
         open: function () {
           document.body.classList.add('sidebar-open');
@@ -136,6 +159,12 @@
   };
 
   window.browser = window.__grammaidMakeBrowser('content');
+  // Stands in for a click on the extension's toolbar button.
+  window.__grammaidToolbarClick = function () {
+    actionListeners.forEach(function (fn) {
+      fn(TAB);
+    });
+  };
   // Lets the harness toolbar stand in for keyboard shortcuts.
   window.__grammaidCommand = function (name) {
     commandListeners.forEach(function (fn) {

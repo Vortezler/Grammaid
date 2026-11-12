@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { leaderboard, recordFix, sanitizeStats, SpellingStore, toCsv, toJson, topForms, type KeyValueStorage } from '../../src/background/spelling-store';
-import { isSiteDisabled, normalizeSettings, DEFAULT_SETTINGS } from '../../src/shared/settings';
+import { cleanHost, hostOf, isSiteEnabled, normalizeSettings, DEFAULT_SETTINGS } from '../../src/shared/settings';
+import { decide } from '../../src/background/activation';
 import type { SpellStats } from '../../src/shared/types';
 
 function memoryStorage(initial: Record<string, unknown> = {}): KeyValueStorage & { data: Record<string, unknown>; writes: number } {
@@ -142,18 +143,54 @@ describe('SpellingStore', () => {
 describe('settings', () => {
   it('fills defaults and repairs bad values', () => {
     expect(normalizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
-    const s = normalizeSettings({ dialect: 'Klingon', detectorMinWords: 5, disabledSites: ['Example.COM', 'example.com', 7], categories: { style: false } });
+    const s = normalizeSettings({ dialect: 'Klingon', detectorMinWords: 5, enabledSites: ['https://Example.COM/page', 'example.com', 'www.example.com', 7], categories: { style: false } });
     expect(s.dialect).toBe('American');
     expect(s.detectorMinWords).toBe(30);
-    expect(s.disabledSites).toEqual(['example.com']);
+    expect(s.enabledSites).toEqual(['example.com']);
     expect(s.categories).toEqual({ spelling: true, grammar: true, style: false });
   });
 
-  it('matches disabled sites by host and subdomain only', () => {
-    const s = { ...DEFAULT_SETTINGS, disabledSites: ['example.com'] };
-    expect(isSiteDisabled(s, 'example.com')).toBe(true);
-    expect(isSiteDisabled(s, 'mail.Example.com')).toBe(true);
-    expect(isSiteDisabled(s, 'notexample.com')).toBe(false);
-    expect(isSiteDisabled(DEFAULT_SETTINGS, 'example.com')).toBe(false);
+  it('matches listed sites by host and subdomain only', () => {
+    const s = { ...DEFAULT_SETTINGS, enabledSites: ['example.com'] };
+    expect(isSiteEnabled(s, 'example.com')).toBe(true);
+    expect(isSiteEnabled(s, 'mail.Example.com')).toBe(true);
+    expect(isSiteEnabled(s, 'www.example.com')).toBe(true);
+    expect(isSiteEnabled(s, 'notexample.com')).toBe(false);
+    expect(isSiteEnabled(s, '')).toBe(false);
+    expect(isSiteEnabled(DEFAULT_SETTINGS, 'example.com')).toBe(false);
+  });
+
+  it('reduces what the user types to a hostname', () => {
+    expect(cleanHost(' https://www.Example.com:8080/a/b?c#d ')).toBe('example.com');
+    expect(cleanHost('docs.example.com')).toBe('docs.example.com');
+    expect(hostOf('https://mail.example.com/inbox')).toBe('mail.example.com');
+    expect(hostOf('not a url')).toBe('');
+    expect(hostOf(undefined)).toBe('');
+  });
+});
+
+describe('activation: where Grammaid scans', () => {
+  const listed = { ...DEFAULT_SETTINGS, enabledSites: ['example.com'] };
+
+  it('is off by default, on every site', () => {
+    expect(decide(DEFAULT_SETTINGS, 'https://example.com/', false)).toEqual({ active: false, site: false, tab: false, host: 'example.com' });
+    expect(decide(DEFAULT_SETTINGS, 'about:blank', false).active).toBe(false);
+  });
+
+  it('is on for listed sites and their subdomains only', () => {
+    expect(decide(listed, 'https://example.com/write', false)).toMatchObject({ active: true, site: true, tab: false });
+    expect(decide(listed, 'https://mail.example.com/', false).active).toBe(true);
+    expect(decide(listed, 'https://other.org/', false).active).toBe(false);
+  });
+
+  it('is on in a tab the user activated, whatever the site', () => {
+    expect(decide(DEFAULT_SETTINGS, 'https://other.org/', true)).toMatchObject({ active: true, site: false, tab: true });
+    expect(decide(DEFAULT_SETTINGS, undefined, true).active).toBe(true);
+  });
+
+  it('the master switch overrides both', () => {
+    const off = { ...listed, enabled: false };
+    expect(decide(off, 'https://example.com/', false).active).toBe(false);
+    expect(decide(off, 'https://other.org/', true).active).toBe(false);
   });
 });

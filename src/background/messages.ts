@@ -10,6 +10,7 @@ import { findSynonyms, type Lexicon } from './synonyms';
 import { rephraseText } from './rephrase';
 import { detect } from './detector';
 import { cacheSize, clearCache } from './model-cache';
+import { activationFor, activeTab, toggleTab } from './activation';
 
 export interface Services {
   lint: LintPipeline;
@@ -18,7 +19,8 @@ export interface Services {
   lexicon: () => Promise<Lexicon>;
 }
 
-type Handlers = { [K in Request['type']]: (req: Extract<Request, { type: K }>) => Promise<ResponseMap[K]> };
+type Sender = { tab?: { id?: number; url?: string } };
+type Handlers = { [K in Request['type']]: (req: Extract<Request, { type: K }>, sender: Sender) => Promise<ResponseMap[K]> };
 
 async function modelStatus(model: TransformersLanguageModel): Promise<ModelStatus> {
   let cacheBytes: number | undefined;
@@ -105,6 +107,11 @@ export function createHandlers(s: Services): Handlers {
 
     'get-page-text': (req) => askActiveTab(req.source),
 
+    // From a content script: its own tab. From the sidebar (no sender tab): the active tab.
+    'get-activation': async (_req, sender) => activationFor(sender.tab ?? (await activeTab())),
+
+    'toggle-tab': async (_req, sender) => toggleTab(sender.tab ?? (await activeTab())),
+
     'export-data': async (): Promise<ExportBundle> => ({
       app: 'grammaid',
       version: 1,
@@ -123,11 +130,11 @@ export function createHandlers(s: Services): Handlers {
 }
 
 export function listen(handlers: Handlers): void {
-  browser.runtime.onMessage.addListener((message: unknown): Promise<Result<unknown>> | undefined => {
+  browser.runtime.onMessage.addListener((message: unknown, sender: Sender): Promise<Result<unknown>> | undefined => {
     const req = message as Request | null;
     if (!req || typeof req !== 'object' || typeof req.type !== 'string' || !(req.type in handlers)) return undefined;
-    const handler = handlers[req.type] as (r: Request) => Promise<unknown>;
-    return handler(req).then(
+    const handler = handlers[req.type] as (r: Request, s: Sender) => Promise<unknown>;
+    return handler(req, sender ?? {}).then(
       (data): Result<unknown> => ({ ok: true, data }),
       (e): Result<unknown> => {
         console.error(`Grammaid: "${req.type}" failed`, e);

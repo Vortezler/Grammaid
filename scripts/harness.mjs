@@ -29,6 +29,7 @@ const TOOLBAR = `
   body.sidebar-open #gh-side { display: block; }
 </style>
 <div id="gh-bar">harness
+  <button onmousedown="event.preventDefault()" onclick="__grammaidToolbarClick()">Toolbar button <span id="gh-badge">[off]</span></button>
   <button onmousedown="event.preventDefault()" onclick="__grammaidCommand('toggle-sidebar')">Sidebar (Alt+Shift+G)</button>
   <button onmousedown="event.preventDefault()" onclick="__grammaidCommand('synonyms')">Synonyms (Alt+Shift+S)</button>
   <button onmousedown="event.preventDefault()" onclick="__grammaidCommand('rephrase')">Rephrase (Alt+Shift+R)</button>

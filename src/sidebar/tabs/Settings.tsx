@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { send, type ExportBundle, type ModelStatus } from '../../shared/types';
-import type { DialectName, Settings as SettingsData } from '../../shared/settings';
+import { send, type Activation, type ExportBundle, type ModelStatus } from '../../shared/types';
+import { cleanHost, type DialectName, type Settings as SettingsData } from '../../shared/settings';
 import { formatBytes } from '../App';
 import { download } from './Stats';
 
@@ -73,15 +73,30 @@ export function Settings({ active, status, refreshStatus }: Props) {
     else setNote(res.error);
   };
 
-  const addCurrentSite = async () => {
-    try {
-      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-      const host = tab?.url ? new URL(tab.url).hostname : '';
-      if (!host || !settings) return setNote('This page has no site to disable.');
-      if (!settings.disabledSites.includes(host)) await patch({ disabledSites: [...settings.disabledSites, host] });
-    } catch {
-      setNote('Could not read the current site.');
-    }
+  // Where Grammaid is running right now, for the tab the user is looking at. Polled lightly
+  // while this tab is open, because the user can switch browser tabs at any time.
+  const [here, setHere] = useState<Activation | null>(null);
+  const refreshHere = () => void send({ type: 'get-activation' }).then((res) => res.ok && setHere(res.data));
+  useEffect(() => {
+    if (!active) return;
+    refreshHere();
+    const timer = window.setInterval(refreshHere, 1500);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  const setSite = async (host: string, on: boolean) => {
+    if (!settings) return;
+    const site = cleanHost(host);
+    if (!site) return setNote('That does not look like a site name. Try something like example.com.');
+    const rest = settings.enabledSites.filter((x) => x !== site);
+    await patch({ enabledSites: on ? [...rest, site] : rest });
+    refreshHere();
+  };
+
+  const toggleTab = async () => {
+    const res = await send({ type: 'toggle-tab' });
+    if (res.ok) setHere(res.data);
+    else setNote(res.error);
   };
 
   const exportAll = async () => {
@@ -136,12 +151,33 @@ export function Settings({ active, status, refreshStatus }: Props) {
       </div>
 
       <div class="card">
-        <h3>Sites where Grammaid is off</h3>
-        <TokenList items={settings.disabledSites} empty="Grammaid checks every site." onRemove={(s) => patch({ disabledSites: settings.disabledSites.filter((x) => x !== s) })} />
-        <AddRow placeholder="example.com" label="Site to disable" onAdd={(s) => patch({ disabledSites: [...settings.disabledSites, s.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')] })} />
+        <h3>Where Grammaid runs</h3>
+        <p class="small muted">
+          Grammaid stays off until you turn it on. It checks every text field in a tab when the site is on your list, or after you click
+          the Grammaid toolbar button in that tab.
+        </p>
+        <p role="status">
+          <span class={here?.active ? 'dot teal' : 'dot off'} />
+          {!here
+            ? 'Checking this tab…'
+            : !settings.enabled
+              ? 'Off everywhere ("Check my writing" is switched off).'
+              : here.site
+                ? `On in this tab: ${here.host} is on your list.`
+                : here.tab
+                  ? 'On in this tab until you close it.'
+                  : 'Off in this tab.'}
+        </p>
         <div class="row">
-          <button onClick={addCurrentSite}>Turn off on the current site</button>
+          <button class={here?.tab ? '' : 'primary'} onClick={toggleTab} disabled={!settings.enabled}>
+            {here?.tab ? 'Turn off in this tab' : 'Turn on in this tab'}
+          </button>
+          {here?.host && !here.site && <button onClick={() => setSite(here.host, true)}>Always check {here.host}</button>}
         </div>
+        <div class="divider" />
+        <h3>Sites checked automatically</h3>
+        <TokenList items={settings.enabledSites} empty="No sites yet. Add the ones you write on." onRemove={(s) => setSite(s, false)} />
+        <AddRow placeholder="example.com" label="Site to check automatically" onAdd={(s) => setSite(s, true)} />
       </div>
 
       <div class="card">

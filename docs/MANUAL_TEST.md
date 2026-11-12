@@ -30,21 +30,39 @@ all pass. `npm run calibrate` ran against the real scoring model (results in DEC
 | 5 | Rephrase: options with diff; Tighten without the model | Partly. Tighten and the active-voice hint appeared with a diff; the model produced no rewrite that survived the filters in that run (one beam-search candidate was added afterwards and not re-checked in the browser) | Not run |
 | 6 | AI Check: AI fixture clearly higher than human fixture | Pass. `ai-2-climate` 100 % "Likely AI" (with the larger 236 MB model file; 77 % with the shipped 85 MB file under Node), `human-2-narrative` 0 % "Likely human" | Not run |
 | 6 | Short text shows the too-short message | Covered by a unit test only | Not run |
-| 7 | Disable on a site → no overlay; password fields never checked | Covered by unit tests only (`isSiteDisabled`, `findEditable`) | Not run |
+| 7 | Off on sites that are not listed → no overlay; password fields never checked | 1.0.0: unit tests only. 1.1.0: see the additions below | Not run |
 | 8 | Offline after models are cached | Not run. Models were served from the IndexedDB cache on a second page load, but the network was never disconnected | Not run |
 
 Model download inside a browser (ONNX Runtime WASM + IndexedDB cache) worked in the harness for
 both models.
 
+## 1.1.0 additions (harness, Chromium; not run in Waterfox)
+
+| Step | Result |
+| --- | --- |
+| Page load with no listed site: nothing is scanned | Pass. 0 underlines, badge off |
+| Toolbar click: every field is checked with none focused | Pass. 18 underlines across textarea, input, contenteditable, controlled input, plus 3 inside the iframe; badge `on`; toast shown |
+| A field added to the page later is checked | Pass |
+| A script changes a field's text | Pass. Typos underlined, then cleared after the text was corrected |
+| Second toolbar click turns it off | Pass. 0 underlines, badge off |
+| Adding the site to the list turns scanning on without a click; removing it turns it off | Pass |
+| Clicking an underline in a field opens the card | Pass |
+| Settings shows the tab's state, "Turn on in this tab" and "Always check <site>" | Pass |
+
+Not checkable in the harness and still to verify in Waterfox: the real toolbar button and badge,
+activation surviving navigation in the tab and ending when the tab closes, and iframes following
+the top-level site.
+
 ## To do in Waterfox
 
-1. Install `grammaid-1.0.0.xpi` (see the README; unsigned add-ons may need
+1. Install the release `.xpi` (see the README; unsigned add-ons may need
    `xpinstall.signatures.required = false`).
 2. Open `test/fixtures/playground.html` and go through steps 1 to 8 above.
 3. Pay particular attention to what the harness cannot show:
    - the background page starts without CSP errors (`about:debugging` → Inspect);
    - right-click → *Grammaid: Synonyms / Rephrase* and the three shortcuts work;
-   - the toolbar button and `Alt+Shift+G` toggle the sidebar; the pill either opens it or shows
+   - the toolbar button turns scanning on and off for the tab (badge `on`), and `Alt+Shift+G`
+     toggles the sidebar; the pill either opens it or shows
      the "Press Alt+Shift+G" toast;
    - the contenteditable inside the iframe gets underlines;
    - the model download completes and survives a browser restart.

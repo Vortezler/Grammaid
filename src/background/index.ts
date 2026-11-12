@@ -8,6 +8,7 @@ import { SpellingStore } from './spelling-store';
 import { getSettings, loadSettings, onSettingsChanged } from './settings';
 import { createHandlers, listen } from './messages';
 import { registerMenus } from './menus';
+import { registerActivation } from './activation';
 import type { Lexicon, Sense } from './synonyms';
 
 // --- ONNX Runtime / Transformers.js wiring -------------------------------------------------
@@ -55,6 +56,7 @@ const lexicon = () =>
 
 listen(createHandlers({ lint, model, spelling, lexicon }));
 registerMenus();
+registerActivation();
 
 void loadSettings().then(async (settings) => {
   await harper.configure(settings.dialect, settings.userDictionary);

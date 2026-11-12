@@ -1,13 +1,18 @@
-// Watches the focused editable field: lints it after typing pauses, keeps underlines glued to
-// the text while typing, and opens the suggestion card when an underline is clicked.
+// Checks text fields: lints each one after typing pauses, keeps underlines glued to the text
+// while typing, and opens the suggestion card when an underline is clicked.
 import { send, type Issue } from '../shared/types';
-import { LINT_DEBOUNCE_MS, MAX_LINT_CHARS, isSiteDisabled, type Settings } from '../shared/settings';
+import { LINT_DEBOUNCE_MS, MAX_LINT_CHARS } from '../shared/settings';
 import { applyReplacement } from './apply';
 import { buildCard } from './card';
 import type { Overlay } from './overlay';
 import { editingHost, isTextControl, readField, type Editable, type TextMap } from './textmap';
 
 const BLUR_GRACE_MS = 250;
+/** Most fields checked in one frame; pages with more (huge forms, grids) get the first ones. */
+export const MAX_FIELDS = 40;
+/** Gap between the first lints of newly found fields, so a big form does not stall the page. */
+const STAGGER_MS = 40;
+const SCAN_DEBOUNCE_MS = 500;
 
 /**
  * Moves issues along with an edit: issues before the change stay, issues after it shift by the
@@ -59,25 +64,57 @@ export function findEditable(target: EventTarget | null): Editable | null {
 
 const ignoreKey = (text: string, issue: Issue) => `${issue.rule}\u0000${text.slice(issue.start, issue.end).toLowerCase()}`;
 
+const CANDIDATES = 'textarea, input, [contenteditable]';
+
+/** Every checkable field under `root` that is actually laid out (visible), in document order. */
+export function findFields(root: ParentNode, limit: number = MAX_FIELDS): Editable[] {
+  const out: Editable[] = [];
+  const seen = new Set<Editable>();
+  for (const el of Array.from(root.querySelectorAll(CANDIDATES))) {
+    const field = findEditable(el);
+    if (!field || seen.has(field)) continue;
+    seen.add(field);
+    if (field.getClientRects().length === 0) continue; // display:none, detached, collapsed
+    out.push(field);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+interface FieldState {
+  el: Editable;
+  text: string;
+  map: TextMap | null;
+  issues: Issue[];
+  timer: number;
+  seq: number;
+  listeners: [string, EventListener, AddEventListenerOptions?][];
+}
+
+/**
+ * While running, checks EVERY text field in the page, not just the focused one: the fields
+ * present at start, and any that appear later (watched with a MutationObserver).
+ */
 export class FieldWatcher {
-  private field: Editable | null = null;
+  private fields = new Map<Editable, FieldState>();
+  private focused: Editable | null = null;
   private lastField: Editable | null = null;
-  private text = '';
-  private map: TextMap | null = null;
-  private issues: Issue[] = [];
-  private timer = 0;
   private blurTimer = 0;
-  private seq = 0;
+  private scanTimer = 0;
+  private observer: MutationObserver | null = null;
   private ignored = new Set<string>();
-  private settings: Settings;
   private active = false;
   private card: HTMLElement | null = null;
 
-  constructor(
-    private overlay: Overlay,
-    settings: Settings,
-  ) {
-    this.settings = settings;
+  constructor(private overlay: Overlay) {}
+
+  get running(): boolean {
+    return this.active;
+  }
+
+  /** Number of fields currently being checked. */
+  get fieldCount(): number {
+    return this.fields.size;
   }
 
   start() {
@@ -86,9 +123,13 @@ export class FieldWatcher {
     document.addEventListener('focusin', this.onFocusIn, true);
     document.addEventListener('focusout', this.onFocusOut, true);
     document.addEventListener('mousedown', this.onDocMouseDown, true);
-    // A field may already have focus when the script loads.
+    if (typeof MutationObserver !== 'undefined') {
+      this.observer = new MutationObserver(() => this.queueScan(SCAN_DEBOUNCE_MS));
+      this.observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    this.scan();
     const current = findEditable(document.activeElement);
-    if (current) this.attach(current);
+    if (current) this.focus(current);
   }
 
   stop() {
@@ -97,21 +138,26 @@ export class FieldWatcher {
     document.removeEventListener('focusin', this.onFocusIn, true);
     document.removeEventListener('focusout', this.onFocusOut, true);
     document.removeEventListener('mousedown', this.onDocMouseDown, true);
-    this.detach();
+    this.observer?.disconnect();
+    this.observer = null;
+    window.clearTimeout(this.scanTimer);
+    window.clearTimeout(this.blurTimer);
+    for (const state of [...this.fields.values()]) this.unregister(state);
+    this.focused = null;
+    this.closeCard();
+    this.overlay.clearFields();
   }
 
-  updateSettings(settings: Settings) {
-    this.settings = settings;
-    if (this.field) this.requestLint(0);
+  /** Settings changed (categories, dictionary, dialect): check everything again. */
+  recheck() {
+    if (!this.active) return;
+    let i = 0;
+    for (const state of this.fields.values()) this.requestLint(state, i++ * STAGGER_MS);
   }
 
-  get enabledHere(): boolean {
-    return this.settings.enabled && !isSiteDisabled(this.settings, location.hostname);
-  }
-
-  /** The field being checked, or the last one that was (for "Use text from page field"). */
+  /** The focused field, or the last one that was (for "Use text from page field"). */
   get currentField(): Editable | null {
-    const f = this.field ?? this.lastField;
+    const f = this.focused ?? this.lastField;
     return f && f.isConnected ? f : null;
   }
 
@@ -125,13 +171,81 @@ export class FieldWatcher {
     };
   }
 
+  // ---- discovering fields ---------------------------------------------------------------------
+
+  private queueScan(delay: number) {
+    window.clearTimeout(this.scanTimer);
+    this.scanTimer = window.setTimeout(this.guard(() => this.scan()), delay);
+  }
+
+  /** Registers fields that appeared and forgets fields that left the page. */
+  private scan() {
+    if (!this.active) return;
+    for (const state of [...this.fields.values()]) {
+      if (!state.el.isConnected) this.unregister(state);
+    }
+    let fresh = 0;
+    for (const el of findFields(document, MAX_FIELDS)) {
+      if (this.fields.has(el)) continue;
+      if (this.fields.size >= MAX_FIELDS) break;
+      this.register(el, fresh++ * STAGGER_MS);
+    }
+  }
+
+  private register(el: Editable, delay: number): FieldState {
+    const existing = this.fields.get(el);
+    if (existing) return existing;
+    const read = readField(el);
+    const state: FieldState = { el, text: read.text, map: read.map, issues: [], timer: 0, seq: 0, listeners: [] };
+    const on = (type: string, fn: EventListener, options?: AddEventListenerOptions) => {
+      el.addEventListener(type, fn, options);
+      state.listeners.push([type, fn, options]);
+    };
+    on('input', this.guard(() => this.onInput(state)));
+    on('mousemove', this.guard((e: Event) => {
+      const m = e as MouseEvent;
+      this.overlay.setHover(this.overlay.hitTest(el, m.clientX, m.clientY));
+    }));
+    on('mouseleave', this.guard(() => this.overlay.setHover(null)));
+    on('click', this.guard((e: Event) => {
+      const m = e as MouseEvent;
+      const issue = this.overlay.hitTest(el, m.clientX, m.clientY);
+      if (issue) this.openCard(state, issue);
+    }));
+    on('scroll', this.overlay.schedule, { passive: true });
+    this.fields.set(el, state);
+    this.requestLint(state, delay);
+    return state;
+  }
+
+  private unregister(state: FieldState) {
+    window.clearTimeout(state.timer);
+    state.seq++;
+    for (const [type, fn, options] of state.listeners) state.el.removeEventListener(type, fn, options);
+    state.listeners = [];
+    this.fields.delete(state.el);
+    this.overlay.removeField(state.el);
+    if (this.focused === state.el) this.focused = null;
+  }
+
+  // ---- focus: only decides where the pill sits ------------------------------------------------
+
+  private focus(el: Editable) {
+    // A field can gain focus before the next scan has seen it (just created, or was hidden).
+    const state = this.fields.get(el) ?? (this.fields.size < MAX_FIELDS ? this.register(el, 60) : null);
+    if (!state) return;
+    this.focused = el;
+    this.lastField = el;
+    this.overlay.setPill(el, state.issues.length, this.openSidebar);
+  }
+
   private onFocusIn = this.guard((e: FocusEvent) => {
     if (this.overlay.owns(e.target)) return;
     window.clearTimeout(this.blurTimer);
-    const el = this.enabledHere ? findEditable(e.target) : null;
-    if (el === this.field) return;
-    if (el) this.attach(el);
-    else this.detach();
+    const el = findEditable(e.target);
+    if (el === this.focused) return;
+    if (el) this.focus(el);
+    else this.blur();
   });
 
   private onFocusOut = this.guard((_e: FocusEvent) => {
@@ -140,50 +254,24 @@ export class FieldWatcher {
       this.guard(() => {
         const active = document.activeElement;
         if (this.overlay.owns(active)) return; // focus moved into our card
-        if (this.field && (active === this.field || this.field.contains(active))) return;
-        this.detach();
+        if (this.focused && (active === this.focused || this.focused.contains(active))) return;
+        this.blur();
       }),
       BLUR_GRACE_MS,
     );
   });
 
+  /** Underlines stay when a field loses focus; only the pill and the card go. */
+  private blur() {
+    this.focused = null;
+    this.closeCard();
+    this.overlay.setPill(null);
+  }
+
   private onDocMouseDown = this.guard((e: MouseEvent) => {
-    // Composed path: events from inside our shadow root are retargeted to the host.
+    // Events from inside our shadow root are retargeted to the host.
     if (!this.overlay.owns(e.target)) this.overlay.closeSurface();
   });
-
-  private attach(el: Editable) {
-    this.detach();
-    this.field = el;
-    this.lastField = el;
-    this.overlay.setField(el);
-    el.addEventListener('input', this.onInput);
-    el.addEventListener('mousemove', this.onMouseMove as EventListener);
-    el.addEventListener('mouseleave', this.onMouseLeave);
-    el.addEventListener('click', this.onClick as EventListener);
-    el.addEventListener('scroll', this.overlay.schedule, { passive: true });
-    const read = readField(el);
-    this.text = read.text;
-    this.map = read.map;
-    this.requestLint(60);
-  }
-
-  private detach() {
-    const el = this.field;
-    window.clearTimeout(this.timer);
-    this.seq++;
-    if (el) {
-      el.removeEventListener('input', this.onInput);
-      el.removeEventListener('mousemove', this.onMouseMove as EventListener);
-      el.removeEventListener('mouseleave', this.onMouseLeave);
-      el.removeEventListener('click', this.onClick as EventListener);
-      el.removeEventListener('scroll', this.overlay.schedule);
-    }
-    this.field = null;
-    this.issues = [];
-    this.closeCard();
-    this.overlay.setField(null);
-  }
 
   /** Closes the suggestion card, leaving any other popover (synonyms, rephrase) alone. */
   private closeCard() {
@@ -191,54 +279,50 @@ export class FieldWatcher {
     this.card = null;
   }
 
-  private onInput = this.guard(() => {
-    const el = this.field;
-    if (!el) return;
-    const read = readField(el);
-    // Keep existing underlines attached to their words until the fresh lint arrives.
-    this.issues = shiftIssues(this.issues, this.text, read.text);
-    this.text = read.text;
-    this.map = read.map;
-    this.closeCard();
-    this.overlay.setIssues(this.issues, this.map);
-    this.overlay.setPill(this.issues.length, this.openSidebar);
-    this.requestLint(LINT_DEBOUNCE_MS);
-  });
+  // ---- linting --------------------------------------------------------------------------------
 
-  private onMouseMove = this.guard((e: MouseEvent) => {
-    this.overlay.setHover(this.overlay.hitTest(e.clientX, e.clientY));
-  });
-
-  private onMouseLeave = this.guard(() => this.overlay.setHover(-1));
-
-  private onClick = this.guard((e: MouseEvent) => {
-    const index = this.overlay.hitTest(e.clientX, e.clientY);
-    const issue = this.overlay.issueAt(index);
-    if (issue) this.openCard(issue);
-  });
-
-  private requestLint(delay: number) {
-    window.clearTimeout(this.timer);
-    const seq = ++this.seq; // anything still in flight is now stale
-    this.timer = window.setTimeout(() => void this.lint(seq), delay);
+  private show(state: FieldState) {
+    this.overlay.setFieldIssues(state.el, state.issues, state.map);
+    if (this.focused === state.el) this.overlay.setPill(state.el, state.issues.length, this.openSidebar);
   }
 
-  private async lint(seq: number) {
-    const el = this.field;
-    if (!el || !this.enabledHere) {
-      if (el) this.overlay.setIssues([], null);
+  private onInput(state: FieldState) {
+    const read = readField(state.el);
+    // Keep existing underlines attached to their words until the fresh lint arrives.
+    state.issues = shiftIssues(state.issues, state.text, read.text);
+    state.text = read.text;
+    state.map = read.map;
+    this.closeCard();
+    this.show(state);
+    this.requestLint(state, LINT_DEBOUNCE_MS);
+  }
+
+  private requestLint(state: FieldState, delay: number) {
+    window.clearTimeout(state.timer);
+    const seq = ++state.seq; // anything still in flight for this field is now stale
+    state.timer = window.setTimeout(() => void this.lint(state, seq), delay);
+  }
+
+  private async lint(state: FieldState, seq: number) {
+    if (!this.active || !state.el.isConnected) return;
+    const read = readField(state.el);
+    state.text = read.text;
+    state.map = read.map;
+    if (!read.text.trim()) {
+      state.issues = [];
+      this.show(state);
       return;
     }
-    const read = readField(el);
-    this.text = read.text;
-    this.map = read.map;
     const res = await send({ type: 'lint', text: read.text.slice(0, MAX_LINT_CHARS) });
-    if (seq !== this.seq || el !== this.field) return; // the user kept typing or moved on
+    if (!this.active || seq !== state.seq || !this.fields.has(state.el)) return; // typed on, or gone
     if (!res.ok) return; // keep whatever is shown; the next edit retries
-    if (readField(el).text !== read.text) return; // changed without an input event; next lint catches up
-    this.issues = res.data.filter((issue) => !this.ignored.has(ignoreKey(read.text, issue)));
-    this.overlay.setIssues(this.issues, this.map);
-    this.overlay.setPill(this.issues.length, this.openSidebar);
+    if (readField(state.el).text !== read.text) {
+      // Changed without an input event (a script set the value): check the new text instead.
+      this.requestLint(state, LINT_DEBOUNCE_MS);
+      return;
+    }
+    state.issues = res.data.filter((issue) => !this.ignored.has(ignoreKey(read.text, issue)));
+    this.show(state);
   }
 
   private openSidebar = () => {
@@ -247,11 +331,13 @@ export class FieldWatcher {
     });
   };
 
-  private openCard(issue: Issue) {
-    const el = this.field;
+  // ---- suggestion card ------------------------------------------------------------------------
+
+  private openCard(state: FieldState, issue: Issue) {
+    const el = state.el;
     const anchor = this.overlay.anchorOf(issue);
-    if (!el || !anchor) return;
-    const problem = this.text.slice(issue.start, issue.end);
+    if (!anchor) return;
+    const problem = state.text.slice(issue.start, issue.end);
     const close = () => {
       this.overlay.closeSurface();
       el.focus({ preventScroll: true });
@@ -270,22 +356,26 @@ export class FieldWatcher {
           void send({ type: 'spelling-accepted', typo: problem, correction: replacement });
         }
         // Editors that swallow input events still get a fresh check.
-        if (this.field === el) this.onInput();
-        this.requestLint(80);
+        if (this.fields.has(el)) this.onInput(state);
+        this.requestLint(state, 80);
       },
       addToDictionary: () => {
         close();
-        void send({ type: 'add-word', word: problem }).then(() => this.requestLint(0));
+        // The settings change that follows rechecks every field.
+        void send({ type: 'add-word', word: problem });
       },
       ignore: () => {
-        this.ignored.add(ignoreKey(this.text, issue));
-        this.issues = this.issues.filter((i) => ignoreKey(this.text, i) !== ignoreKey(this.text, issue));
-        this.overlay.setIssues(this.issues, this.map);
-        this.overlay.setPill(this.issues.length, this.openSidebar);
+        const key = ignoreKey(state.text, issue);
+        this.ignored.add(key);
+        // The same word under the same rule is ignored in every field for this session.
+        for (const s of this.fields.values()) {
+          s.issues = s.issues.filter((i) => ignoreKey(s.text, i) !== key);
+          this.show(s);
+        }
         close();
       },
     });
-    this.overlay.setHover(-1);
+    this.overlay.setHover(null);
     this.card = card;
     this.overlay.openSurface(card, anchor);
     card.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });

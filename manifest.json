@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Grammaid",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Offline writing assistant: grammar, spelling, style, synonyms, rephrasing, AI-likelihood check and spelling stats. Nothing you type leaves your machine.",
   "browser_specific_settings": {
     "gecko": {
@@ -46,7 +46,7 @@
     }
   ],
   "browser_action": {
-    "default_title": "Grammaid",
+    "default_title": "Grammaid: click to check this tab",
     "default_icon": "icons/icon.svg"
   },
   "sidebar_action": {

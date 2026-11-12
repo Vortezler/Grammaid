@@ -1,5 +1,6 @@
 // Context-menu entries, keyboard commands and the toolbar button.
 import type { ContentRequest } from '../shared/types';
+import { toggleTab } from './activation';
 
 type Action = 'synonyms' | 'rephrase';
 
@@ -37,7 +38,8 @@ export function registerMenus(): void {
     });
   });
 
-  browser.browserAction.onClicked.addListener(() => {
-    void browser.sidebarAction.toggle();
+  // The toolbar button switches Grammaid on (or off) for the tab it was clicked in.
+  browser.browserAction.onClicked.addListener((tab) => {
+    void toggleTab(tab);
   });
 }
