@@ -11,6 +11,7 @@ import { rephraseText } from './rephrase';
 import { detect } from './detector';
 import { cacheSize, clearCache } from './model-cache';
 import { activationFor, activeTab, toggleTab } from './activation';
+import { openTranslation } from './translation';
 
 export interface Services {
   lint: LintPipeline;
@@ -51,6 +52,8 @@ export function createHandlers(s: Services): Handlers {
     synonyms: async (req) => findSynonyms(await s.lexicon(), s.model, req.sentence, req.word, req.wordStart),
 
     rephrase: (req) => rephraseText(s.model, req.text),
+
+    'translate-open': (req) => openTranslation(req.text, req.source, req.target),
 
     detect: async (req) => detect(req.text, s.model, (await getSettings()).detectorMinWords),
 

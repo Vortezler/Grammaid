@@ -1,7 +1,7 @@
 {
   "name": "grammaid",
-  "version": "1.1.0",
-  "description": "Offline Grammarly-style writing assistant for Waterfox",
+  "version": "1.2.0",
+  "description": "Local writing assistant with optional online translation for Waterfox",
   "scripts": {
     "test": "vitest run",
     "build": "node scripts/build.mjs",

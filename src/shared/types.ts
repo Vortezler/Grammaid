@@ -1,5 +1,6 @@
 // Message and data shapes shared by the background page, content script and sidebar.
 import type { Settings } from './settings';
+import type { TranslationLanguage, TranslationProvider, TranslationSource } from './translation';
 
 export type IssueKind = 'spelling' | 'grammar' | 'style';
 
@@ -105,6 +106,7 @@ export type Request =
   | { type: 'lint'; text: string }
   | { type: 'synonyms'; sentence: string; word: string; wordStart: number }
   | { type: 'rephrase'; text: string }
+  | { type: 'translate-open'; text: string; source: TranslationSource; target: TranslationLanguage }
   | { type: 'detect'; text: string }
   | { type: 'spelling-accepted'; typo: string; correction: string }
   | { type: 'get-stats' }
@@ -126,6 +128,7 @@ export interface ResponseMap {
   lint: Issue[];
   synonyms: SynonymResponse;
   rephrase: RephraseResponse;
+  'translate-open': { provider: TranslationProvider };
   detect: DetectResult;
   'spelling-accepted': null;
   'get-stats': SpellStats;

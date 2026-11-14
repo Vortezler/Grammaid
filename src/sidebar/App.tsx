@@ -3,10 +3,11 @@ import { send, type ModelStatus } from '../shared/types';
 import { Check } from './tabs/Check';
 import { AiCheck } from './tabs/AiCheck';
 import { Rewrite } from './tabs/Rewrite';
+import { Translate } from './tabs/Translate';
 import { Stats } from './tabs/Stats';
 import { Settings } from './tabs/Settings';
 
-const TABS = ['Check', 'AI Check', 'Rewrite', 'Stats', 'Settings'] as const;
+const TABS = ['Check', 'AI Check', 'Rewrite', 'Translate', 'Stats', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
 
 export const formatBytes = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(0)} MB` : `${Math.max(0, Math.round(n / 1024))} KB`);
@@ -117,6 +118,7 @@ export function App() {
         <Check active={tab === 'Check'} />
         <AiCheck active={tab === 'AI Check'} onModelActivity={refresh} />
         <Rewrite active={tab === 'Rewrite'} onModelActivity={refresh} />
+        <Translate active={tab === 'Translate'} />
         <Stats active={tab === 'Stats'} />
         <Settings active={tab === 'Settings'} status={status} refreshStatus={refresh} />
       </main>

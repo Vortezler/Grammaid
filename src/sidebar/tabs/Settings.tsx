@@ -221,7 +221,7 @@ export function Settings({ active, status, refreshStatus }: Props) {
 
       <div class="card">
         <h3>Your data</h3>
-        <p class="small muted">Settings, dictionary and spelling stats, as one JSON file. Nothing is ever sent anywhere.</p>
+        <p class="small muted">Settings, dictionary and spelling stats, as one JSON file. Exports stay on your computer. Translation sends text to the selected website only when you request it.</p>
         <div class="row">
           <button onClick={exportAll}>Export</button>
           <button onClick={() => fileInput.current?.click()}>Import…</button>

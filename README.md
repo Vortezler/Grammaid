@@ -3,7 +3,7 @@
 An offline, Grammarly-style writing assistant for [Waterfox](https://www.waterfox.net/). It checks
 spelling, grammar and style inline in any text field, suggests synonyms that fit the sentence,
 offers rephrasings, estimates how AI-written a text looks, and tracks which words you misspell
-most. Nothing you type leaves your computer.
+most. Writing checks stay on your computer; the optional translator opens an online translation website.
 
 > Screenshots: add `docs/screenshots/inline.png` (underlines and the suggestion card),
 > `docs/screenshots/synonyms.png` (the synonyms popover), `docs/screenshots/ai-check.png` and
@@ -33,7 +33,12 @@ most. Nothing you type leaves your computer.
   percentage of words flagged, per-sentence highlighting, and the signals behind the score.
 - **Spelling stats** (sidebar): a leaderboard of the words you misspell most. Select a word to see
   its top three misspellings. Export as JSON or CSV.
-- **Sidebar** (`Alt+Shift+G`, or View → Sidebar → Grammaid): Check, AI Check, Rewrite, Stats,
+- **Translate** (sidebar): choose source and target languages, type or paste up to 5,000 characters,
+  or import a page selection. Opens Google Translate or Bing Translator in a new tab, with the
+  text and languages filled in. No API, API key, account, or translation model download required.
+  Supports English, Spanish, Simplified/Traditional Chinese, Portuguese, Russian, German, French,
+  Japanese, Korean, Dutch, and all 22 scheduled Indian languages. See [Translation](#translation).
+- **Sidebar** (`Alt+Shift+G`, or View → Sidebar → Grammaid): Check, AI Check, Rewrite, Translate, Stats,
   Settings.
 
 ## Where it runs
@@ -67,10 +72,34 @@ grammar and style checking never need a download.
 
 ## Privacy
 
-- Your text is processed on your computer, inside the extension. It is never sent anywhere.
-- The only network traffic is the one-time model download from `huggingface.co`.
+- Writing checks, synonyms, rewrites and the AI check run on your computer. Their only network
+  traffic is the model download from `huggingface.co`.
+- **Translation is online and explicit.** Only clicking a translate button sends the text for
+  that step to Google Translate or Bing Translator. Text is included in the new tab's URL and
+  may remain in browser history and be processed under that website's privacy policy. Typing,
+  changing languages and importing a selection do not send translation text anywhere.
 - No telemetry, no accounts, no analytics. Settings, your dictionary and spelling stats live in
   the browser's local extension storage; you can export or delete them in Settings.
+
+## Translation
+
+Open the sidebar → **Translate**. Choose the source language (or **Detect language**) and target,
+enter text or press **Use selection**, then press the translate button. Read and copy the result
+on the website in the new tab. Grammaid does not fetch translation APIs, scrape results, save a
+translation history, or return the website's result into the sidebar. Internet access is required.
+Firefox versions with built-in data consent may first ask you to allow website content transmission.
+Declining prevents translation and leaves the local writing features available.
+
+Indian languages: Assamese, Bengali, Bodo, Dogri, Gujarati, Hindi, Kannada, Kashmiri, Konkani,
+Maithili, Malayalam, Manipuri (Meitei), Marathi, Nepali, Odia, Punjabi, Sanskrit, Santali (Ol Chiki),
+Sindhi, Tamil, Telugu and Urdu.
+
+Bodo and Kashmiri use Bing Translator; other languages use Google Translate. Select Bodo or
+Kashmiri as the source explicitly instead of relying on detection. Pairs between Bodo/Kashmiri
+and Manipuri/Santali need two steps through English: open the first translation, copy the English
+result into the second box in Grammaid, then open the second translation. Neither website's
+current language menu covers both ends of these pairs. Translation quality and availability
+depend on the websites; scripts and regional variants follow the selected service.
 
 ## Honest limitations
 
@@ -87,7 +116,8 @@ grammar and style checking never need a download.
   Paste your text into the sidebar's Check tab instead.
 - Underlines can be drawn over other content when a field sits inside a separately scrolling
   container and is partly scrolled out of view.
-- Waterfox / Firefox only (Manifest V2). No Chrome, no mobile. English only.
+- Waterfox / Firefox only (Manifest V2). No Chrome, no mobile. Writing checks are English only;
+  the translator supports the languages listed above.
 - The add-on is unsigned and does not update itself.
 
 ## Development
@@ -117,7 +147,7 @@ npm run build
 
 ```
 content script  ──messages──►  background page  ◄──messages──  sidebar
-(fields, overlay, card)        (Harper, models, WordNet, stats)   (Preact, five tabs)
+(fields, overlay, card)        (Harper, models, WordNet, stats)   (Preact, six tabs)
 ```
 
 - **Background page** (`src/background/`): the only place heavy work happens. Hosts Harper, the

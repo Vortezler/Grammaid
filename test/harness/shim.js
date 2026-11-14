@@ -63,6 +63,9 @@
           },
         },
       },
+      permissions: {
+        getAll: function () { return Promise.resolve({ permissions: [], origins: [] }); },
+      },
       storage: {
         local: {
           get: function (key) {
@@ -100,6 +103,10 @@
         },
       },
       tabs: {
+        create: function (options) {
+          window.open(options.url, '_blank', 'noopener,noreferrer');
+          return Promise.resolve({ url: options.url });
+        },
         query: function () {
           return Promise.resolve([TAB]);
         },

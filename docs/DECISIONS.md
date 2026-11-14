@@ -97,3 +97,36 @@ the detector is accurate in general.
 
 The `<all_urls>` permission and the `wasm-unsafe-eval` CSP are required: the first to check text
 on any site, the second to run WebAssembly in the background page.
+
+## 1.2.0: optional website translation
+
+- **User-selected online mode without translation APIs or accounts.** The user allowed online
+  translation provided it did not depend on APIs or accounts, with per-language local packs as
+  the fallback. Implemented normal website navigation with prefilled URL parameters, not an
+  undocumented endpoint, scraped result, embedded website, or hosted inference API. No new
+  packages or local translation models. The user reads/copies the result on the provider site.
+- **All 22 scheduled Indian languages** is the confirmed scope, alongside the ten requested
+  world languages (Chinese has Simplified/Traditional choices). One shared catalog controls
+  selectors, runtime validation and website routing. Language names include native script labels.
+- **Coverage was verified against live website menus on 2026-11-13.** Despite Google's 2024
+  [announcement](https://blog.google/intl/en-in/google-translate-new-languages-2024/), its current
+  menu did not offer Bodo or Kashmiri. Bing's menu did offer them, but not Manipuri or Santali.
+  Bodo/Kashmiri therefore use Bing; all other choices use Google. Eight directed combinations
+  between Bodo/Kashmiri and Manipuri/Santali require two website steps through English. The UI
+  provides both steps, with manual copying of the English result. It never sends an unsupported
+  language code and lets the website silently substitute another language.
+- **No silent transmission.** Typing, language changes and selection import stay local.
+  Only a translate button opens a fixed HTTPS provider URL with the text for that step.
+  The UI explains the destination, online processing and browser-history exposure before the
+  action. Text stays in component memory, not extension storage. Backend validation rejects
+  empty input, unsupported codes and input above 5,000 characters without opening a tab.
+- **Privacy declaration updated.** The manifest keeps no required data collection and declares
+  optional `websiteContent`. On browsers exposing `permissions.getAll().data_collection`, the
+  sidebar requests this permission directly in the click handler; the background checks it
+  again before navigation. Decline, revoke and permission-check errors stop navigation. Older
+  browsers use the inline disclosure and explicitly labelled action. See Mozilla's
+  [data consent documentation](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/).
+- **Writing tools remain English and local.** This does not add non-English grammar rules or
+  change scanning activation. Translation is a sixth sidebar tab; all tabs remain mounted.
+- **Release naming.** Version 1.2.0 uses tag `v1.2`, following the existing `v1` / `v1.1` release
+  convention. The user authorized committing, pushing and publishing this version on 2026-11-13.

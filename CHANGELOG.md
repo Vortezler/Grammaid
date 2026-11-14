@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0
+
+- **Translate tab.** Source/target language selectors, automatic source detection, swap, page
+  selection import, Unicode text entry and a 5,000-character limit. All 22 scheduled Indian
+  languages plus English, Spanish, Chinese (Simplified and Traditional), Portuguese, Russian,
+  German, French, Japanese, Korean and Dutch.
+- Translation opens Google Translate or Bing Translator's normal website in a new tab. No
+  translation API, API key, account or local translation pack is required. Results are read and
+  copied on the website. Bodo and Kashmiri use Bing; pairs between them and Manipuri/Santali
+  have a guided two-step English intermediate, with a manual copy/paste between steps.
+- Translation explicitly sends text online; other writing features remain local. Added an
+  in-product disclosure, accurate privacy documentation, and an optional `websiteContent` data
+  permission for Firefox versions with built-in data consent. Older Waterfox versions show
+  the disclosure beside the explicit translate button.
+
 ## 1.1.0
 
 - **Automatic scanning.** When Grammaid is on in a tab it now checks every text field on the

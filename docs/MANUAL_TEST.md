@@ -66,3 +66,26 @@ the top-level site.
      the "Press Alt+Shift+G" toast;
    - the contenteditable inside the iframe gets underlines;
    - the model download completes and survives a browser restart.
+
+## 1.2.0 translator verification (2026-11-13)
+
+Automated: ESLint/TypeScript and 121 tests pass. New tests exercise the 22-language catalog,
+all 1,089 source/target combinations (including eight English-intermediate routes), preservation
+of Unicode/newlines/URL-like text, runtime limits, website code mappings, explicit-click-only
+transmission, denied/revoked Firefox data permission, backend navigation failure, and the two-step UI.
+
+Browser: Chromium harness at 360px sidebar width, using the real built sidebar/background with
+stubbed extension APIs. Six tabs and translation controls render without overlap. The Hindi
+button opened Google Translate with “Hello, how are you?” prefilled and displayed
+“नमस्ते, आप कैसे हैं?”. The Bodo button opened Bing with `from=en&to=brx`, preserved that source
+text and displayed a Bodo result. Bodo → Santali showed two English-intermediate steps with the
+second button disabled until input. Live provider menus were checked for coverage and codes.
+
+Packaged `artifacts/grammaid-1.2.0.xpi` successfully (about 14.1 MB). `web-ext lint` reports
+0 errors and 5 warnings: the four previously documented warnings plus Android support for
+`permissions.request` at minimum version 115. Android is not a supported target.
+
+Still unverified: installation and real `browser.tabs.create` in Waterfox, native Firefox optional
+data-consent prompts, selection import from real pages/iframes into Translate, translation
+quality for every language pair, and website behavior at the full input limit. Website menus
+and availability can change independently of the extension. No translation API was called.
