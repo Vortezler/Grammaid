@@ -36,3 +36,11 @@ Grammaid bundles or downloads the following, each under its own license:
   src/data/wordnet-synonyms.json is derived from WordNet.
 - Models downloaded at runtime from Hugging Face: Xenova/distilgpt2 and
   Xenova/flan-t5-small (both Apache-2.0).
+- Local translation: Helsinki-NLP OPUS-MT with Xenova ONNX conversions (Apache-2.0 or
+  CC BY 4.0 by repository); AI4Bharat IndicTrans2 with Hari31416 ONNX conversions (MIT);
+  Meta NLLB-200 distilled 600M / Xenova conversion (CC BY-NC 4.0).
+  See docs/TRANSLATION_MODELS.md for model attribution and non-commercial restrictions.
+- Hugging Face Tokenizers.js, Apache-2.0.
+- Local speech recognition: onnx-community/whisper-base ONNX conversion (Apache-2.0),
+  based on OpenAI Whisper (MIT). Downloaded on request, not bundled in the extension.
+  See docs/SPEECH_MODEL.md for the pinned model and attribution.

@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.3.0 — 2026-11-15
+
+- **Sharper UI:** rectangular controls and switches, graphite/platinum surfaces, subtle glossy
+  highlights, shorter typography and small panel/press transitions. Reduced-motion preferences
+  are respected, including the sidebar, recorder, inline popovers and standalone settings page.
+- **Settings in a browser tab:** opens only from an explicit Settings command or browser
+  Preferences; settings are no longer confined to the sidebar. No automatic startup/install tab.
+- **True on-demand page activation:** click-only mode injects no page scripts until a toolbar
+  click or explicit page action. Listed sites require automatic-site mode. Navigation revokes
+  manual activation, disabling removes observers/overlays, and grammar/model startup is deferred.
+  The background entry is now about 14 KB with heavy engines split into lazy local chunks.
+- **Free-text-only privacy:** a shared structural HTML policy excludes password, account,
+  contact, payment/card, identity and address fields before value access. Applies to checking,
+  autocorrect, selection actions, page-text import and typing. Unknown single-line fields and
+  read-only page selections are excluded. No screenshots, OCR or screen-reading classification.
+
+- **Speech tab:** local Whisper Base speech recognition with a separate optional 76 MiB model
+  download, microphone recording in an extension tab, and audio-file import. Up to two minutes
+  per clip; 99 model language choices or automatic detection. Inference is cache-only; no
+  browser/cloud speech service or audio upload. Recordings/transcripts are not saved to history.
+- **Transcript cleanup:** model-generated punctuation, English “uh/um/umm” removal, capitalization,
+  spacing, final punctuation and paragraphs at acoustic gaps after sentences. Original transcript
+  remains available; edited results can be copied. No profanity/slur filter or semantic rewrites.
+  The recognition model may still mishear/omit words. English filler removal requires English
+  selected; it is not applied to automatically detected or other-language speech.
+- **Type tab:** paste up to 20,000 characters, choose a browser tab and text field (including
+  embedded frames), and start paced typing. Adjustable approximate speed, independently sampled
+  character timing, word/punctuation hesitations and optional randomized sentence/paragraph pauses.
+  Insert at the caret, replace a selection, or append; Pause, Resume, Stop and Escape controls.
+  Changing focus or hiding the tab pauses; intervening edits, navigation and rejected input stop
+  the session. Multilingual graphemes stay intact and autocorrect does not alter the source text.
+  No typing history is stored. This uses ordinary editor input and does not guarantee that typing
+  is indistinguishable from a human or bypass any history/detection system.
+- **Local translation replaces website translation.** Download the languages you choose,
+  translate offline, and read/copy results inside the sidebar. All 22 scheduled Indian
+  languages and the existing world-language choices have pinned local model routes.
+  Non-English pairs pass through English locally. Source language is chosen explicitly.
+- **Language library:** exact download sizes, progress, stop/resume, removal, persistence,
+  shared-file reuse and cache-only inference. Packs include both English directions; some
+  multilingual weights are shared across languages. No automatic bulk download or web fallback.
+  Most packs require 220–550 MB; Korean is about 1 GB and includes a CC BY-NC 4.0 model.
+- **Refreshed interface:** readable navigation, clear focus states, an integrated translation
+  editor and result card, with the final graphite/platinum visual polish described above.
+- **Suggestion popups** after a typing pause near an issue and on underline hover, without
+  moving keyboard focus. Clicking an underline still opens a keyboard-accessible card.
+- **Optional auto-correct:** concrete English grammar/spelling fixes and known redundant or
+  wordy phrases apply after a pause without per-fix confirmation. Focused fields only, with
+  caret/selection preservation, IME handling, bounded batches, and an Undo notice / Alt+Shift+Z.
+  Enable in Settings; existing installations keep auto-correct off until enabled.
+- Removed translation website navigation and optional website-content transmission permission.
+
 ## 1.2.0
 
 - **Translate tab.** Source/target language selectors, automatic source detection, swap, page

@@ -1,5 +1,6 @@
 // Text extraction and offset mapping. The string built here is the one that gets linted, so any
 // [start, end) range in it can be turned back into a DOM Range (and the other way round).
+import { isFreeText } from './field-policy';
 
 export type TextControl = HTMLTextAreaElement | HTMLInputElement;
 export type Editable = TextControl | HTMLElement;
@@ -13,6 +14,8 @@ export interface Segment {
 export interface TextMap {
   text: string;
   segments: Segment[];
+  /** Element caret positions cover empty paragraphs and explicit line breaks. */
+  anchors: { node: Element; offset: number; textOffset: number }[];
 }
 
 const BLOCK_TAGS = new Set([
@@ -52,6 +55,7 @@ export function editingHost(el: Element | null): HTMLElement | null {
 export function buildTextMap(root: HTMLElement): TextMap {
   let text = '';
   const segments: Segment[] = [];
+  const anchors: TextMap['anchors'] = [];
   const newline = () => {
     if (text.length > 0 && !text.endsWith('\n')) text += '\n';
   };
@@ -75,16 +79,25 @@ export function buildTextMap(root: HTMLElement): TextMap {
     }
     const block = el !== root && BLOCK_TAGS.has(tag);
     if (block) newline();
-    for (let child = el.firstChild; child; child = child.nextSibling) visit(child);
+    let offset = 0;
+    anchors.push({ node: el, offset, textOffset: text.length });
+    for (let child = el.firstChild; child; child = child.nextSibling) { visit(child); anchors.push({ node: el, offset: ++offset, textOffset: text.length }); }
     if (block) newline();
   };
   visit(root);
-  return { text, segments };
+  return { text, segments, anchors };
 }
 
-function locate(map: TextMap, offset: number, preferEnd: boolean): { node: Text; offset: number } | null {
+function locate(map: TextMap, offset: number, preferEnd: boolean): { node: Node; offset: number } | null {
   const segs = map.segments;
-  if (segs.length === 0) return null;
+  const anchor = () => {
+    for (let index = map.anchors.length - 1; index >= 0; index--) {
+      const point = map.anchors[index];
+      if (point.textOffset === offset) return { node: point.node, offset: point.offset };
+    }
+    return null;
+  };
+  if (segs.length === 0) return anchor();
   let lo = 0;
   let hi = segs.length - 1;
   while (lo < hi) {
@@ -95,17 +108,19 @@ function locate(map: TextMap, offset: number, preferEnd: boolean): { node: Text;
   let seg = segs[lo];
   // For a range end sitting exactly on a segment boundary, stay in the earlier node.
   if (preferEnd && offset <= seg.start && lo > 0 && segs[lo - 1].end >= offset) seg = segs[lo - 1];
+  if (offset < seg.start || offset > seg.end) return anchor();
   const local = Math.max(0, Math.min(seg.node.data.length, offset - seg.start));
   return { node: seg.node, offset: local };
 }
 
 /** DOM Range covering text offsets [start, end), or null if the map no longer matches the DOM. */
 export function rangeFromOffsets(map: TextMap, start: number, end: number): Range | null {
+  if (start < 0 || end < start || end > map.text.length) return null;
   const a = locate(map, start, false);
   const b = locate(map, end, true);
   if (!a || !b) return null;
   try {
-    const range = a.node.ownerDocument.createRange();
+    const range = a.node.ownerDocument!.createRange();
     range.setStart(a.node, a.offset);
     range.setEnd(b.node, b.offset);
     return range;
@@ -120,6 +135,8 @@ export function offsetFromPosition(map: TextMap, node: Node, offset: number): nu
     const seg = map.segments.find((s) => s.node === node);
     if (seg) return seg.start + Math.min(offset, seg.node.data.length);
   }
+  const anchor = map.anchors.find((point) => point.node === node && point.offset === offset);
+  if (anchor) return anchor.textOffset;
   // Element position: the offset is that of the first text segment at or after the position.
   const doc = node.ownerDocument ?? (node as Document);
   const probe = doc.createRange();
@@ -141,6 +158,7 @@ export interface FieldText {
 }
 
 export function readField(el: Editable): FieldText {
+  if (!isFreeText(el)) return { text: '', map: null };
   if (isTextControl(el)) return { text: el.value, map: null };
   const map = buildTextMap(el);
   return { text: map.text, map };

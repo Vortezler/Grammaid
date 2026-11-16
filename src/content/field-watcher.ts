@@ -1,7 +1,11 @@
 // Checks text fields: lints each one after typing pauses, keeps underlines glued to the text
 // while typing, and opens the suggestion card when an underline is clicked.
 import { send, type Issue } from '../shared/types';
-import { LINT_DEBOUNCE_MS, MAX_LINT_CHARS } from '../shared/settings';
+import { DEFAULT_SETTINGS, LINT_DEBOUNCE_MS, MAX_LINT_CHARS, type Settings } from '../shared/settings';
+import { applyEdits, automaticEdits, fieldSelection, inverseEdits, restoreFieldSelection, type Edit, type SelectionOffsets } from './auto-correct';
+import { h } from './ui';
+import { isTypingField } from './typing-state';
+import { isFreeText } from './field-policy';
 import { applyReplacement } from './apply';
 import { buildCard } from './card';
 import type { Overlay } from './overlay';
@@ -51,6 +55,9 @@ export function shiftIssues(issues: Issue[], oldText: string, newText: string): 
 
 export function findEditable(target: EventTarget | null): Editable | null {
   if (!(target instanceof Element)) return null;
+  if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && !isFreeText(target)) return null;
+  const candidate = isTextControl(target) ? target : editingHost(target);
+  if (!candidate || !isFreeText(candidate)) return null;
   if (isTextControl(target)) {
     if (target.disabled || target.readOnly) return null;
     if (target.spellcheck === false || target.getAttribute('spellcheck') === 'false') return null;
@@ -89,6 +96,8 @@ interface FieldState {
   timer: number;
   seq: number;
   listeners: [string, EventListener, AddEventListenerOptions?][];
+  composing: boolean;
+  dirty: boolean;
 }
 
 /**
@@ -105,6 +114,12 @@ export class FieldWatcher {
   private ignored = new Set<string>();
   private active = false;
   private card: HTMLElement | null = null;
+  private settings: Settings = DEFAULT_SETTINGS;
+  private popupTimer = 0;
+  private hoveredIssue: Issue | null = null;
+  private applying = false;
+  private undo: { state: FieldState; after: string; edits: Edit[]; selection: SelectionOffsets | null } | null = null;
+  private notice: HTMLElement | null = null;
 
   constructor(private overlay: Overlay) {}
 
@@ -120,12 +135,14 @@ export class FieldWatcher {
   start() {
     if (this.active) return;
     this.active = true;
+    this.loadPreferences();
     document.addEventListener('focusin', this.onFocusIn, true);
     document.addEventListener('focusout', this.onFocusOut, true);
     document.addEventListener('mousedown', this.onDocMouseDown, true);
+    document.addEventListener('keydown', this.onKeyDown, true);
     if (typeof MutationObserver !== 'undefined') {
       this.observer = new MutationObserver(() => this.queueScan(SCAN_DEBOUNCE_MS));
-      this.observer.observe(document.documentElement, { childList: true, subtree: true });
+      this.observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['type', 'autocomplete', 'inputmode', 'pattern', 'name', 'id', 'aria-label', 'aria-labelledby', 'aria-readonly', 'aria-disabled', 'readonly', 'disabled', 'inert', 'form', 'action', 'contenteditable', 'spellcheck', 'data-purpose'] });
     }
     this.scan();
     const current = findEditable(document.activeElement);
@@ -138,12 +155,15 @@ export class FieldWatcher {
     document.removeEventListener('focusin', this.onFocusIn, true);
     document.removeEventListener('focusout', this.onFocusOut, true);
     document.removeEventListener('mousedown', this.onDocMouseDown, true);
+    document.removeEventListener('keydown', this.onKeyDown, true);
     this.observer?.disconnect();
     this.observer = null;
     window.clearTimeout(this.scanTimer);
     window.clearTimeout(this.blurTimer);
     for (const state of [...this.fields.values()]) this.unregister(state);
     this.focused = null;
+    window.clearTimeout(this.popupTimer);
+    this.notice?.remove(); this.notice = null; this.undo = null;
     this.closeCard();
     this.overlay.clearFields();
   }
@@ -151,8 +171,15 @@ export class FieldWatcher {
   /** Settings changed (categories, dictionary, dialect): check everything again. */
   recheck() {
     if (!this.active) return;
+    this.loadPreferences();
     let i = 0;
     for (const state of this.fields.values()) this.requestLint(state, i++ * STAGGER_MS);
+  }
+
+  private loadPreferences() {
+    void send({ type: 'get-settings' }).then((res) => {
+      if (res.ok) this.settings = res.data;
+    });
   }
 
   /** The focused field, or the last one that was (for "Use text from page field"). */
@@ -182,7 +209,7 @@ export class FieldWatcher {
   private scan() {
     if (!this.active) return;
     for (const state of [...this.fields.values()]) {
-      if (!state.el.isConnected) this.unregister(state);
+      if (!state.el.isConnected || !isFreeText(state.el)) this.unregister(state);
     }
     let fresh = 0;
     for (const el of findFields(document, MAX_FIELDS)) {
@@ -196,17 +223,24 @@ export class FieldWatcher {
     const existing = this.fields.get(el);
     if (existing) return existing;
     const read = readField(el);
-    const state: FieldState = { el, text: read.text, map: read.map, issues: [], timer: 0, seq: 0, listeners: [] };
+    const state: FieldState = { el, text: read.text, map: read.map, issues: [], timer: 0, seq: 0, listeners: [], composing: false, dirty: false };
     const on = (type: string, fn: EventListener, options?: AddEventListenerOptions) => {
       el.addEventListener(type, fn, options);
       state.listeners.push([type, fn, options]);
     };
-    on('input', this.guard(() => this.onInput(state)));
+    on('input', this.guard((e: Event) => this.onInput(state, e as InputEvent)));
+    on('compositionstart', this.guard(() => { state.composing = true; state.seq++; window.clearTimeout(state.timer); this.closeCard(); }));
+    on('compositionend', this.guard(() => { state.composing = false; this.onInput(state); }));
     on('mousemove', this.guard((e: Event) => {
       const m = e as MouseEvent;
-      this.overlay.setHover(this.overlay.hitTest(el, m.clientX, m.clientY));
+      const issue = this.overlay.hitTest(el, m.clientX, m.clientY);
+      this.overlay.setHover(issue);
+      if (issue === this.hoveredIssue) return;
+      this.hoveredIssue = issue;
+      window.clearTimeout(this.popupTimer);
+      if (issue && this.settings.suggestionPopups) this.queuePopup(state, issue, 300);
     }));
-    on('mouseleave', this.guard(() => this.overlay.setHover(null)));
+    on('mouseleave', this.guard(() => { this.overlay.setHover(null); this.hoveredIssue = null; window.clearTimeout(this.popupTimer); }));
     on('click', this.guard((e: Event) => {
       const m = e as MouseEvent;
       const issue = this.overlay.hitTest(el, m.clientX, m.clientY);
@@ -275,6 +309,7 @@ export class FieldWatcher {
 
   /** Closes the suggestion card, leaving any other popover (synonyms, rephrase) alone. */
   private closeCard() {
+    window.clearTimeout(this.popupTimer);
     if (this.card && this.overlay.surfaceEl === this.card) this.overlay.closeSurface();
     this.card = null;
   }
@@ -286,7 +321,11 @@ export class FieldWatcher {
     if (this.focused === state.el) this.overlay.setPill(state.el, state.issues.length, this.openSidebar);
   }
 
-  private onInput(state: FieldState) {
+  private onInput(state: FieldState, event?: InputEvent) {
+    if (this.applying) return;
+    if (!isFreeText(state.el)) { this.unregister(state); return; }
+    state.dirty = !isTypingField(state.el) && event?.inputType !== 'historyUndo' && event?.inputType !== 'historyRedo';
+    if (this.undo?.state === state) { this.undo = null; this.notice?.remove(); this.notice = null; }
     const read = readField(state.el);
     // Keep existing underlines attached to their words until the fresh lint arrives.
     state.issues = shiftIssues(state.issues, state.text, read.text);
@@ -294,7 +333,7 @@ export class FieldWatcher {
     state.map = read.map;
     this.closeCard();
     this.show(state);
-    this.requestLint(state, LINT_DEBOUNCE_MS);
+    if (!state.composing) this.requestLint(state, LINT_DEBOUNCE_MS);
   }
 
   private requestLint(state: FieldState, delay: number) {
@@ -304,7 +343,8 @@ export class FieldWatcher {
   }
 
   private async lint(state: FieldState, seq: number) {
-    if (!this.active || !state.el.isConnected) return;
+    if (!isFreeText(state.el)) { this.unregister(state); return; }
+    if (!this.active || !state.el.isConnected || state.composing) return;
     const read = readField(state.el);
     state.text = read.text;
     state.map = read.map;
@@ -314,15 +354,84 @@ export class FieldWatcher {
       return;
     }
     const res = await send({ type: 'lint', text: read.text.slice(0, MAX_LINT_CHARS) });
-    if (!this.active || seq !== state.seq || !this.fields.has(state.el)) return; // typed on, or gone
+    if (!this.active || seq !== state.seq || !this.fields.has(state.el) || !isFreeText(state.el)) return; // typed on, gone, or now sensitive
     if (!res.ok) return; // keep whatever is shown; the next edit retries
+    if (state.dirty && this.focused === state.el) {
+      const preferences = await send({ type: 'get-settings' });
+      if (!this.active || seq !== state.seq || state.composing || !this.fields.has(state.el)) return;
+      if (!preferences.ok) return;
+      this.settings = preferences.data;
+    }
     if (readField(state.el).text !== read.text) {
       // Changed without an input event (a script set the value): check the new text instead.
       this.requestLint(state, LINT_DEBOUNCE_MS);
       return;
     }
     state.issues = res.data.filter((issue) => !this.ignored.has(ignoreKey(read.text, issue)));
+    if (this.settings.autoCorrect && state.dirty && this.focused === state.el && !state.composing && !isTypingField(state.el)) {
+      const selection = fieldSelection(state.el);
+      const edits = automaticEdits(read.text, state.issues, this.settings.autoCorrectStyle, selection);
+      state.dirty = false;
+      if (edits.length) {
+        this.applying = true;
+        let applied: Edit[];
+        try { applied = applyEdits(state.el, edits, selection); }
+        finally { this.applying = false; }
+        if (applied.length) {
+          const fresh = readField(state.el);
+          this.undo = { state, after: fresh.text, edits: applied, selection };
+          state.issues = shiftIssues(state.issues, state.text, fresh.text);
+          state.text = fresh.text; state.map = fresh.map;
+          this.show(state); this.showUndo(applied.length);
+          this.requestLint(state, 100);
+          return;
+        }
+      }
+    }
     this.show(state);
+    if (state.dirty && this.focused === state.el && this.settings.suggestionPopups && !this.overlay.surfaceEl) {
+      const caret = fieldSelection(state.el)?.end;
+      const issue = caret === undefined ? undefined : [...state.issues].reverse().find((i) => i.end <= caret && caret - i.end < 60);
+      if (issue) this.queuePopup(state, issue, 220);
+    }
+  }
+
+  private queuePopup(state: FieldState, issue: Issue, delay: number) {
+    window.clearTimeout(this.popupTimer);
+    this.popupTimer = window.setTimeout(() => {
+      if (!this.active || state.composing || isTypingField(state.el) || !state.issues.includes(issue) || readField(state.el).text !== state.text) return;
+      if (this.overlay.surfaceEl && this.overlay.surfaceEl !== this.card) return;
+      this.openCard(state, issue, false);
+    }, delay);
+  }
+  private onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') this.closeCard();
+    if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'z' && this.undo) {
+      event.preventDefault(); event.stopPropagation(); this.undoLatest();
+    }
+  };
+  private showUndo(count: number) {
+    this.notice?.remove();
+    this.notice = h('div', { class: 'auto-notice', role: 'status' },
+      h('span', {}, `${count} ${count === 1 ? 'correction' : 'corrections'} applied`),
+      h('button', { type: 'button', onClick: () => this.undoLatest() }, 'Undo'),
+      h('button', { type: 'button', 'aria-label': 'Dismiss correction notice', onClick: () => { this.notice?.remove(); this.notice = null; } }, '×'));
+    this.notice.addEventListener('mousedown', (event) => event.preventDefault());
+    this.overlay.addFloating(this.notice);
+  }
+  private undoLatest() {
+    const undo = this.undo;
+    if (!undo) return;
+    if (!undo.state.el.isConnected || readField(undo.state.el).text !== undo.after) {
+      this.overlay.toast('The text changed. Use your editor’s undo instead.'); return;
+    }
+    this.applying = true;
+    try { applyEdits(undo.state.el, inverseEdits(undo.edits), fieldSelection(undo.state.el)); restoreFieldSelection(undo.state.el, undo.selection); }
+    finally { this.applying = false; }
+    this.undo = null; this.notice?.remove(); this.notice = null;
+    const fresh = readField(undo.state.el);
+    undo.state.text = fresh.text; undo.state.map = fresh.map; undo.state.dirty = false;
+    this.requestLint(undo.state, 80);
   }
 
   private openSidebar = () => {
@@ -333,9 +442,9 @@ export class FieldWatcher {
 
   // ---- suggestion card ------------------------------------------------------------------------
 
-  private openCard(state: FieldState, issue: Issue) {
+  private openCard(state: FieldState, issue: Issue, takeFocus = true) {
     const el = state.el;
-    const anchor = this.overlay.anchorOf(issue);
+    const anchor = this.overlay.anchorOf(issue, el);
     if (!anchor) return;
     const problem = state.text.slice(issue.start, issue.end);
     const close = () => {
@@ -378,6 +487,6 @@ export class FieldWatcher {
     this.overlay.setHover(null);
     this.card = card;
     this.overlay.openSurface(card, anchor);
-    card.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+    if (takeFocus) card.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
   }
 }

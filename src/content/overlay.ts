@@ -4,6 +4,7 @@ import type { Issue } from '../shared/types';
 import { Mirror, type LocalRect } from './mirror';
 import { isTextControl, rangeFromOffsets, type Editable, type TextMap } from './textmap';
 import { OVERLAY_CSS, h } from './ui';
+import { isFreeText } from './field-policy';
 
 export interface Box {
   left: number;
@@ -169,7 +170,7 @@ export class Overlay {
   }
 
   private measureField(el: Editable, layer: Layer, out: Painted[]) {
-    if (!el.isConnected || layer.issues.length === 0) return;
+    if (!el.isConnected || !isFreeText(el) || layer.issues.length === 0) return;
     const clip = this.clipRect(el);
     // Fields scrolled out of view cost nothing.
     if (clip.right <= clip.left || clip.bottom <= clip.top) return;
@@ -242,8 +243,16 @@ export class Overlay {
   }
 
   /** The on-screen box of an issue (its first line), used to anchor the card. */
-  anchorOf(issue: Issue): Box | null {
-    return this.painted.find((p) => p.issue === issue)?.boxes[0] ?? null;
+  anchorOf(issue: Issue, field?: Editable): Box | null {
+    const painted = this.painted.find((p) => p.issue === issue)?.boxes[0];
+    if (painted) return painted;
+    // A popup can be requested before the next paint (or in a throttled browser tab).
+    // Measure its field directly instead of dropping the suggestion.
+    const layer = field && this.layers.get(field);
+    if (!field || !layer) return null;
+    const measured: Painted[] = [];
+    this.measureField(field, layer, measured);
+    return measured.find((p) => p.issue === issue)?.boxes[0] ?? null;
   }
 
   setHover(issue: Issue | null) {

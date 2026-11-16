@@ -28,13 +28,15 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 // solid when the user asks for less transparency or more contrast.
 export const OVERLAY_CSS = `
 :host { all: initial; }
+.auto-notice { position: fixed; right: 20px; bottom: 20px; pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 4px; background: var(--surface-solid); color: var(--text); border: 1px solid var(--hairline); box-shadow: var(--shadow); font-size: 12px; }
+.auto-notice button { color: var(--teal); background: var(--fill); border: 0; border-radius: 3px; padding: 5px 9px; cursor: pointer; }
 * { box-sizing: border-box; }
 .root {
   --teal: #0f9d8a; --red: #d93025; --blue: #1a73e8;
   --surface: rgba(255, 255, 255, 0.82); --surface-solid: #ffffff;
   --text: #1c1c1e; --muted: rgba(60, 60, 67, 0.72); --hairline: rgba(60, 60, 67, 0.16);
   --fill: rgba(120, 120, 128, 0.12); --fill-press: rgba(120, 120, 128, 0.22);
-  --shadow: 0 12px 36px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow: 0 18px 54px rgba(8, 38, 30, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
   --ease: cubic-bezier(0.2, 0.9, 0.3, 1);
   position: fixed; inset: 0; pointer-events: none;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text);
@@ -69,7 +71,7 @@ export const OVERLAY_CSS = `
   position: absolute; pointer-events: auto;
   background: var(--surface);
   -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--hairline); border-radius: 12px; box-shadow: var(--shadow);
+  border: 1px solid var(--hairline); border-radius: 4px; box-shadow: var(--shadow),inset 0 1px rgba(255,255,255,.09);
   opacity: 0; transform: scale(0.94);
   transition: opacity 140ms var(--ease), transform 180ms var(--ease);
 }
@@ -89,7 +91,7 @@ export const OVERLAY_CSS = `
 
 button {
   font: inherit; color: inherit; border: 0; margin: 0; cursor: pointer; text-align: left;
-  border-radius: 8px; background: var(--fill); padding: 6px 10px; min-height: 28px;
+  border-radius: 3px; background: var(--fill); padding: 6px 10px; min-height: 28px;
   transition: transform 100ms ease-out, background-color 100ms ease-out;
   -webkit-user-select: none; user-select: none;
 }
@@ -118,18 +120,18 @@ del { color: var(--muted); text-decoration: line-through; text-decoration-color:
 /* Pill */
 .pill {
   position: absolute; pointer-events: auto; display: flex; align-items: center; gap: 5px;
-  min-height: 22px; padding: 2px 8px 2px 7px; border-radius: 11px; font-size: 11.5px; font-weight: 600;
+  min-height: 22px; padding: 2px 8px 2px 7px; border-radius: 3px; font-size: 11.5px; font-weight: 600;
   background: var(--surface); color: var(--text); border: 1px solid var(--hairline);
   -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); font-variant-numeric: tabular-nums;
 }
 .pill:hover { background: var(--surface-solid); }
-.syn { position: absolute; pointer-events: auto; min-height: 24px; padding: 2px 9px; border-radius: 12px; font-size: 11.5px; font-weight: 600; background: var(--teal); color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+.syn { position: absolute; pointer-events: auto; min-height: 24px; padding: 2px 9px; border-radius: 3px; font-size: 11.5px; font-weight: 600; background: var(--teal); color: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .syn:hover, .syn:active { background: var(--teal); filter: brightness(0.94); }
 
 .toast {
   position: absolute; left: 50%; bottom: 28px; transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
-  padding: 9px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--hairline);
+  padding: 9px 14px; border-radius: 4px; background: var(--surface); border: 1px solid var(--hairline);
   -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
   box-shadow: var(--shadow); font-size: 13px; max-width: calc(100vw - 32px);
   transition: opacity 160ms var(--ease), transform 200ms var(--ease);

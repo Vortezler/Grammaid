@@ -2,10 +2,14 @@ export type DialectName = 'American' | 'British' | 'Canadian' | 'Australian';
 
 export interface Settings {
   enabled: boolean;
+  activationMode: 'click' | 'sites';
   /** Sites (hostnames) where Grammaid checks every text field automatically. */
   enabledSites: string[];
   dialect: DialectName;
   categories: { spelling: boolean; grammar: boolean; style: boolean };
+  autoCorrect: boolean;
+  autoCorrectStyle: boolean;
+  suggestionPopups: boolean;
   rewriteModelId: string;
   scoringModelId: string;
   detectorMinWords: number;
@@ -14,9 +18,13 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
+  activationMode: 'click',
   enabledSites: [],
   dialect: 'American',
   categories: { spelling: true, grammar: true, style: true },
+  autoCorrect: false,
+  autoCorrectStyle: true,
+  suggestionPopups: true,
   rewriteModelId: 'Xenova/flan-t5-small',
   scoringModelId: 'Xenova/distilgpt2',
   detectorMinWords: 100,
@@ -35,6 +43,7 @@ export function normalizeSettings(raw: unknown): Settings {
   const dialects: DialectName[] = ['American', 'British', 'Canadian', 'Australian'];
   return {
     enabled: typeof s.enabled === 'boolean' ? s.enabled : d.enabled,
+    activationMode: s.activationMode === 'click' || s.activationMode === 'sites' ? s.activationMode : clean(s.enabledSites).length ? 'sites' : 'click',
     enabledSites: [...new Set(clean(s.enabledSites).map(cleanHost).filter(Boolean))],
     dialect: dialects.includes(s.dialect as DialectName) ? (s.dialect as DialectName) : d.dialect,
     categories: {
@@ -42,6 +51,9 @@ export function normalizeSettings(raw: unknown): Settings {
       grammar: s.categories?.grammar ?? true,
       style: s.categories?.style ?? true,
     },
+    autoCorrect: typeof s.autoCorrect === 'boolean' ? s.autoCorrect : d.autoCorrect,
+    autoCorrectStyle: typeof s.autoCorrectStyle === 'boolean' ? s.autoCorrectStyle : d.autoCorrectStyle,
+    suggestionPopups: typeof s.suggestionPopups === 'boolean' ? s.suggestionPopups : d.suggestionPopups,
     rewriteModelId: typeof s.rewriteModelId === 'string' && s.rewriteModelId.trim() ? s.rewriteModelId.trim() : d.rewriteModelId,
     scoringModelId: typeof s.scoringModelId === 'string' && s.scoringModelId.trim() ? s.scoringModelId.trim() : d.scoringModelId,
     detectorMinWords:

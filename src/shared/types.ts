@@ -1,6 +1,8 @@
 // Message and data shapes shared by the background page, content script and sidebar.
 import type { Settings } from './settings';
-import type { TranslationLanguage, TranslationProvider, TranslationSource } from './translation';
+import type { TranslationLanguage, TranslationPackStatus, TranslationResult } from './translation';
+import type { TypingControl, TypingField, TypingOptions, TypingStatus, TypingTab, TypingTarget } from './typing';
+import type { SpeechOptions, SpeechResult, SpeechStatus } from './speech';
 
 export type IssueKind = 'spelling' | 'grammar' | 'style';
 
@@ -103,10 +105,30 @@ export interface ExportBundle {
 
 /** Requests handled by the background page. */
 export type Request =
+  | { type: 'open-settings' }
+  | { type: 'speech-status' }
+  | { type: 'speech-download' }
+  | { type: 'speech-download-cancel' }
+  | { type: 'speech-remove' }
+  | { type: 'speech-open-recorder' }
+  | { type: 'speech-transcribe'; jobId: string; pcm: string; language: string; options: SpeechOptions }
+  | { type: 'speech-cancel'; jobId: string }
   | { type: 'lint'; text: string }
+  | { type: 'typing-tabs' }
+  | { type: 'typing-targets'; tabId: number }
+  | { type: 'typing-targets-report'; nonce: string; fields: TypingField[]; frame: string }
+  | { type: 'typing-locate'; target: TypingTarget }
+  | { type: 'typing-start'; target: TypingTarget; text: string; options: TypingOptions }
+  | { type: 'typing-status' }
+  | { type: 'typing-status-report'; status: TypingStatus }
+  | { type: 'typing-control'; action: TypingControl }
   | { type: 'synonyms'; sentence: string; word: string; wordStart: number }
   | { type: 'rephrase'; text: string }
-  | { type: 'translate-open'; text: string; source: TranslationSource; target: TranslationLanguage }
+  | { type: 'translate'; text: string; source: TranslationLanguage; target: TranslationLanguage }
+  | { type: 'translation-packs' }
+  | { type: 'translation-download'; language: TranslationLanguage }
+  | { type: 'translation-cancel' }
+  | { type: 'translation-remove'; language: TranslationLanguage }
   | { type: 'detect'; text: string }
   | { type: 'spelling-accepted'; typo: string; correction: string }
   | { type: 'get-stats' }
@@ -125,10 +147,30 @@ export type Request =
   | { type: 'import-data'; data: ExportBundle };
 
 export interface ResponseMap {
+  'open-settings': null;
+  'speech-status': SpeechStatus;
+  'speech-download': null;
+  'speech-download-cancel': null;
+  'speech-remove': null;
+  'speech-open-recorder': null;
+  'speech-transcribe': SpeechResult;
+  'speech-cancel': null;
   lint: Issue[];
+  'typing-tabs': TypingTab[];
+  'typing-targets': TypingTarget[];
+  'typing-targets-report': null;
+  'typing-locate': null;
+  'typing-start': TypingStatus;
+  'typing-status': TypingStatus;
+  'typing-status-report': null;
+  'typing-control': TypingStatus;
   synonyms: SynonymResponse;
   rephrase: RephraseResponse;
-  'translate-open': { provider: TranslationProvider };
+  translate: TranslationResult;
+  'translation-packs': TranslationPackStatus[];
+  'translation-download': null;
+  'translation-cancel': null;
+  'translation-remove': null;
   detect: DetectResult;
   'spelling-accepted': null;
   'get-stats': SpellStats;
@@ -161,6 +203,11 @@ export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
 /** Messages the background sends to a tab's content script. */
 export type ContentRequest =
+  | { type: 'typing-discover'; nonce: string }
+  | { type: 'typing-locate'; fieldId: string }
+  | { type: 'typing-start-in-field'; jobId: string; fieldId: string; text: string; options: TypingOptions }
+  | { type: 'typing-control-in-field'; jobId: string; action: TypingControl }
+  | { type: 'typing-get-state'; jobId: string }
   | { type: 'run-action'; action: 'synonyms' | 'rephrase' }
   | { type: 'activation-changed'; activation: Activation; announce: boolean }
   | { type: 'get-page-text'; source: 'field' | 'selection' };

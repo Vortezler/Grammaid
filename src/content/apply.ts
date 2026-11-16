@@ -1,6 +1,7 @@
 // Applies a replacement to a field in a way the page can see and undo: execCommand('insertText')
 // first (native undo stack, framework listeners fire), with manual fallbacks if that is refused.
 import { isTextControl, readField, rangeFromOffsets, type Editable, type TextControl } from './textmap';
+import { isFreeText } from './field-policy';
 
 function nativeValueSetter(el: TextControl): ((v: string) => void) | null {
   const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -37,6 +38,7 @@ function applyToControl(el: TextControl, start: number, end: number, replacement
   }
   const selected = el.selectionStart === start && el.selectionEnd === end;
   if (selected && exec(el.ownerDocument, replacement) && el.value === expected) return true;
+  if (el.value !== before) return el.value === expected; // a custom editor transformed this insertion
 
   // Fallback: set the value through the prototype setter (so React's value tracker notices)
   // and announce it with a bubbling input event.
@@ -53,11 +55,12 @@ function applyToControl(el: TextControl, start: number, end: number, replacement
   return el.value === expected;
 }
 
-function applyToEditable(root: HTMLElement, start: number, end: number, replacement: string): boolean {
+function applyToEditable(root: HTMLElement, start: number, end: number, replacement: string, equivalent: (actual: string, expected: string) => boolean): boolean {
   const { text: before, map } = readField(root);
   if (!map) return false;
   const expected = before.slice(0, start) + replacement + before.slice(end);
-  const range = rangeFromOffsets(map, start, end);
+  let range = rangeFromOffsets(map, start, end);
+  if (!range && before === '' && start === 0 && end === 0) { range = root.ownerDocument.createRange(); range.selectNodeContents(root); range.collapse(true); }
   if (!range) return false;
   const doc = root.ownerDocument;
   const selection = doc.defaultView?.getSelection();
@@ -65,12 +68,12 @@ function applyToEditable(root: HTMLElement, start: number, end: number, replacem
   root.focus();
   selection.removeAllRanges();
   selection.addRange(range);
-  if (exec(doc, replacement) && readField(root).text === expected) return true;
+  if (exec(doc, replacement) && equivalent(readField(root).text, expected)) return true;
 
   // Fallback: edit the DOM directly, then tell the page.
   const fresh = readField(root);
-  if (fresh.text !== before || !fresh.map) return fresh.text === expected;
-  const r = rangeFromOffsets(fresh.map, start, end);
+  if (fresh.text !== before || !fresh.map) return equivalent(fresh.text, expected);
+  const r = rangeFromOffsets(fresh.map, start, end) ?? (before === '' ? range : null);
   if (!r) return false;
   r.deleteContents();
   if (replacement) {
@@ -83,13 +86,14 @@ function applyToEditable(root: HTMLElement, start: number, end: number, replacem
     selection.addRange(caret);
   }
   fireInput(root, replacement);
-  return readField(root).text === expected;
+  return equivalent(readField(root).text, expected);
 }
 
 /** Replaces text offsets [start, end) of the field with `replacement`. Returns true on success. */
-export function applyReplacement(el: Editable, start: number, end: number, replacement: string): boolean {
+export function applyReplacement(el: Editable, start: number, end: number, replacement: string, equivalent = (actual: string, expected: string) => actual === expected): boolean {
+  if (!isFreeText(el)) return false;
   try {
-    return isTextControl(el) ? applyToControl(el, start, end, replacement) : applyToEditable(el, start, end, replacement);
+    return isTextControl(el) ? applyToControl(el, start, end, replacement) : applyToEditable(el, start, end, replacement, equivalent);
   } catch (e) {
     console.warn('Grammaid: could not apply the change', e);
     return false;

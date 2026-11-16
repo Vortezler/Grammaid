@@ -1,35 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { send, type ModelStatus } from '../shared/types';
 import { Check } from './tabs/Check';
 import { AiCheck } from './tabs/AiCheck';
 import { Rewrite } from './tabs/Rewrite';
 import { Translate } from './tabs/Translate';
+import { Type } from './tabs/Type';
+import { Speech } from './tabs/Speech';
 import { Stats } from './tabs/Stats';
-import { Settings } from './tabs/Settings';
+import { useModelStatus } from './model-status';
 
-const TABS = ['Check', 'AI Check', 'Rewrite', 'Translate', 'Stats', 'Settings'] as const;
+const TABS = ['Check', 'AI Check', 'Rewrite', 'Translate', 'Type', 'Speech', 'Stats'] as const;
+const TAB_ICONS = ['✓', '◎', '↺', '文', '⌨', '♩', '▥'];
 type Tab = (typeof TABS)[number];
-
-export const formatBytes = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(0)} MB` : `${Math.max(0, Math.round(n / 1024))} KB`);
-
-/** Polls model status; quickly while something is loading, slowly otherwise. */
-export function useModelStatus(): [ModelStatus | null, () => void] {
-  const [status, setStatus] = useState<ModelStatus | null>(null);
-  const timer = useRef(0);
-  const refresh = useCallback(() => {
-    window.clearTimeout(timer.current);
-    void send({ type: 'model-status' }).then((res) => {
-      if (res.ok) setStatus(res.data);
-      const busy = res.ok && (res.data.gpt2 === 'loading' || res.data.t5 === 'loading');
-      timer.current = window.setTimeout(refresh, busy ? 500 : 4000);
-    });
-  }, []);
-  useEffect(() => {
-    refresh();
-    return () => window.clearTimeout(timer.current);
-  }, [refresh]);
-  return [status, refresh];
-}
 
 function ModelBanner({ status, refresh }: { status: ModelStatus | null; refresh: () => void }) {
   if (!status) return null;
@@ -74,7 +56,7 @@ function ModelBanner({ status, refresh }: { status: ModelStatus | null; refresh:
 
 export function App() {
   const [tab, setTab] = useState<Tab>('Check');
-  const [status, refresh] = useModelStatus();
+  const [status, refresh] = useModelStatus(tab === 'AI Check' || tab === 'Rewrite');
   const index = TABS.indexOf(tab);
 
   const onKey = (e: KeyboardEvent) => {
@@ -91,10 +73,10 @@ export function App() {
       <header class="chrome">
         <div class="brand">
           <img src="icons/icon.svg" alt="" />
-          <h1>Grammaid</h1>
+          <div><h1>Grammaid</h1><p class="brand-subtitle">Writing tools</p></div>
+          <button class="settings-button" title="Open settings in a tab" onClick={() => void send({ type: 'open-settings' })}>Settings <span aria-hidden="true">↗</span></button>
         </div>
         <div class="seg" role="tablist" aria-label="Grammaid sections" onKeyDown={onKey}>
-          <span class="thumb" style={{ width: `calc((100% - 4px) / ${TABS.length})`, transform: `translateX(${index * 100}%)` }} />
           {TABS.map((t, i) => (
             <button
               key={t}
@@ -107,7 +89,7 @@ export function App() {
               onPointerDown={() => setTab(t)}
               onClick={() => setTab(t)}
             >
-              {t}
+              <span class="nav-icon" aria-hidden="true">{TAB_ICONS[i]}</span>{t}
             </button>
           ))}
         </div>
@@ -119,8 +101,9 @@ export function App() {
         <AiCheck active={tab === 'AI Check'} onModelActivity={refresh} />
         <Rewrite active={tab === 'Rewrite'} onModelActivity={refresh} />
         <Translate active={tab === 'Translate'} />
+        <Type active={tab === 'Type'} />
+        <Speech active={tab === 'Speech'} />
         <Stats active={tab === 'Stats'} />
-        <Settings active={tab === 'Settings'} status={status} refreshStatus={refresh} />
       </main>
     </>
   );

@@ -34,7 +34,7 @@ function request<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => ID
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(STORE, mode);
         const req = run(tx.objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
+        tx.oncomplete = () => resolve(req.result);
         req.onerror = () => reject(req.error);
         tx.onabort = () => reject(tx.error ?? new Error('Model cache transaction aborted.'));
       }),
@@ -68,6 +68,25 @@ export const modelCache = {
     return true;
   },
 };
+
+/** Read metadata without pulling cached model blobs into memory. */
+export async function cachedFileSizes(): Promise<Record<string, number>> {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const files: Record<string, number> = {};
+    const tx = db.transaction(STORE, 'readonly');
+    const cursor = tx.objectStore(STORE).openCursor();
+    cursor.onsuccess = () => {
+      const row = cursor.result;
+      if (!row) return;
+      const entry = row.value as Entry;
+      files[entry.url] = entry.size;
+      row.continue();
+    };
+    tx.oncomplete = () => resolve(files);
+    tx.onerror = () => reject(tx.error);
+  });
+}
 
 /** Total bytes of cached model files. */
 export async function cacheSize(): Promise<number> {

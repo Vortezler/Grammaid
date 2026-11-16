@@ -6,31 +6,34 @@ import type { LintPipeline } from './lint';
 import type { TransformersLanguageModel } from './model';
 import type { SpellingStore } from './spelling-store';
 import { getSettings, setSettings } from './settings';
-import { findSynonyms, type Lexicon } from './synonyms';
-import { rephraseText } from './rephrase';
-import { detect } from './detector';
+import type { Lexicon } from './synonyms';
 import { cacheSize, clearCache } from './model-cache';
 import { activationFor, activeTab, toggleTab } from './activation';
-import { openTranslation } from './translation';
+import type { LocalTranslator } from './translation';
+import type { TypingCoordinator } from './typing';
+import type { LocalSpeech } from './speech';
+import { ensureContent } from './injection';
 
-export interface Services {
+export interface Engines {
   lint: LintPipeline;
   model: TransformersLanguageModel;
-  spelling: SpellingStore;
   lexicon: () => Promise<Lexicon>;
+  translator: LocalTranslator;
+  speech: LocalSpeech;
 }
+export interface Services { engines: () => Promise<Engines>; peekEngines: () => Engines | null; spelling: SpellingStore; typing: TypingCoordinator }
 
-type Sender = { tab?: { id?: number; url?: string } };
+type Sender = { tab?: { id?: number; url?: string }; frameId?: number };
 type Handlers = { [K in Request['type']]: (req: Extract<Request, { type: K }>, sender: Sender) => Promise<ResponseMap[K]> };
 
-async function modelStatus(model: TransformersLanguageModel): Promise<ModelStatus> {
+async function modelStatus(model?: TransformersLanguageModel): Promise<ModelStatus> {
   let cacheBytes: number | undefined;
   try {
     cacheBytes = await cacheSize();
   } catch {
     cacheBytes = undefined;
   }
-  return { ...model.status(), cacheBytes };
+  return { ...(model?.status() ?? { gpt2: 'idle' as const, t5: 'idle' as const }), cacheBytes };
 }
 
 async function askActiveTab(source: 'field' | 'selection'): Promise<PageText | null> {
@@ -38,6 +41,7 @@ async function askActiveTab(source: 'field' | 'selection'): Promise<PageText | n
   if (tab?.id === undefined) return null;
   const message: ContentRequest = { type: 'get-page-text', source };
   try {
+    await ensureContent(tab.id);
     const reply = (await browser.tabs.sendMessage(tab.id, message)) as PageText | null | undefined;
     return reply ?? null;
   } catch {
@@ -47,15 +51,34 @@ async function askActiveTab(source: 'field' | 'selection'): Promise<PageText | n
 
 export function createHandlers(s: Services): Handlers {
   return {
-    lint: (req) => s.lint.lint(req.text),
+    'speech-status': async () => (await s.engines()).speech.status(),
+    'speech-download': async () => { await (await s.engines()).speech.startDownload(); return null; },
+    'speech-download-cancel': async () => { s.peekEngines()?.speech.cancelDownload(); return null; },
+    'speech-remove': async () => { await (await s.engines()).speech.remove(); return null; },
+    'speech-open-recorder': async () => { await browser.tabs.create({ url: browser.runtime.getURL('speech.html') }); return null; },
+    'speech-transcribe': async (req) => (await s.engines()).speech.transcribe(req.jobId, req.pcm, req.language, req.options),
+    'speech-cancel': async (req) => { s.peekEngines()?.speech.cancel(req.jobId); return null; },
+    lint: async (req) => (await s.engines()).lint.lint(req.text),
+    'typing-tabs': () => s.typing.tabs(),
+    'typing-targets': (req) => s.typing.discover(req.tabId),
+    'typing-targets-report': async (req, sender) => { s.typing.reportTargets(req.nonce, req.fields, req.frame, sender); return null; },
+    'typing-status-report': async (req, sender) => { s.typing.update(req.status, sender); return null; },
+    'typing-locate': async (req) => { await s.typing.locate(req.target); return null; },
+    'typing-start': (req) => s.typing.start(req.target, req.text, req.options),
+    'typing-status': () => s.typing.status(),
+    'typing-control': (req) => s.typing.control(req.action),
 
-    synonyms: async (req) => findSynonyms(await s.lexicon(), s.model, req.sentence, req.word, req.wordStart),
+    synonyms: async (req) => { const engine = await s.engines(); return (await import('./synonyms')).findSynonyms(await engine.lexicon(), engine.model, req.sentence, req.word, req.wordStart); },
 
-    rephrase: (req) => rephraseText(s.model, req.text),
+    rephrase: async (req) => (await import('./rephrase')).rephraseText((await s.engines()).model, req.text),
 
-    'translate-open': (req) => openTranslation(req.text, req.source, req.target),
+    translate: async (req) => (await s.engines()).translator.translate(req.text, req.source, req.target),
+    'translation-packs': async () => (await s.engines()).translator.status(),
+    'translation-download': async (req) => { await (await s.engines()).translator.startDownload(req.language); return null; },
+    'translation-cancel': async () => { s.peekEngines()?.translator.cancelDownload(); return null; },
+    'translation-remove': async (req) => { await (await s.engines()).translator.remove(req.language); return null; },
 
-    detect: async (req) => detect(req.text, s.model, (await getSettings()).detectorMinWords),
+    detect: async (req) => (await import('./detector')).detect(req.text, (await s.engines()).model, (await getSettings()).detectorMinWords),
 
     'spelling-accepted': async (req) => {
       await s.spelling.record(req.typo, req.correction);
@@ -80,21 +103,27 @@ export function createHandlers(s: Services): Handlers {
       return setSettings({ userDictionary: [...current.userDictionary, word] });
     },
 
-    'model-status': () => modelStatus(s.model),
+    'model-status': () => modelStatus(s.peekEngines()?.model),
+    'open-settings': async () => { await browser.runtime.openOptionsPage(); return null; },
 
     'model-load': async () => {
+      const { model } = await s.engines();
       // Start both downloads; progress is read back through model-status.
-      void s.model
+      void model
         .ensureGpt2()
-        .then(() => s.model.ensureT5())
+        .then(() => model.ensureT5())
         .catch(() => undefined);
-      return modelStatus(s.model);
+      return modelStatus(model);
     },
 
     'model-clear': async () => {
-      await s.model.unload();
+      const engine = await s.engines();
+      await engine.speech.unload();
+      await engine.translator.unload();
+      await engine.model.unload();
       await clearCache();
-      return modelStatus(s.model);
+      await engine.translator.forgetPacks();
+      return modelStatus(engine.model);
     },
 
     'open-sidebar': async () => {

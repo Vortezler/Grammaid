@@ -1,6 +1,7 @@
 // Measures where text sits inside a <textarea>/<input>, which expose no geometry of their own.
 // A hidden "mirror" div copies the control's text styles; spans inside it stand in for ranges.
 import type { TextControl } from './textmap';
+import { isFreeText } from './field-policy';
 
 export interface LocalRect {
   /** Relative to the control's border-box origin, with scroll position NOT yet subtracted. */
@@ -40,6 +41,7 @@ export class Mirror {
 
   /** Rectangles for each [start, end) range of the control's value; one array per range. */
   measure(el: TextControl, ranges: { start: number; end: number }[]): LocalRect[][] {
+    if (!isFreeText(el)) return ranges.map(() => []);
     const view = el.ownerDocument.defaultView;
     if (!view || ranges.length === 0) return ranges.map(() => []);
     const cs = view.getComputedStyle(el);

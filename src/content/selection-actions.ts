@@ -9,6 +9,7 @@ import { trapKeys } from './card';
 import type { Box, Overlay } from './overlay';
 import { buildTextMap, editingHost, isTextControl, offsetFromPosition, type Editable } from './textmap';
 import { h } from './ui';
+import { isFreeText } from './field-policy';
 
 export interface SelectionContext {
   /** The selected text, trimmed of surrounding spaces and punctuation. */
@@ -26,7 +27,6 @@ export interface SelectionContext {
 }
 
 const WORD_RE = /^[A-Za-z][A-Za-z'’-]*$/;
-const BLOCKS = new Set(['P', 'DIV', 'LI', 'TD', 'TH', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'ARTICLE', 'SECTION', 'DD', 'DT', 'PRE', 'BODY']);
 
 /** Shrinks [start, end) so it does not begin or end with whitespace or punctuation. */
 export function trimRange(text: string, start: number, end: number): { start: number; end: number } {
@@ -63,7 +63,9 @@ function finish(
 
 export function getSelectionContext(overlay: Overlay): SelectionContext | null {
   const active = document.activeElement;
+  if ((active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) && !isFreeText(active)) return null;
   if (isTextControl(active)) {
+    if (!isFreeText(active)) return null;
     const start = active.selectionStart ?? 0;
     const end = active.selectionEnd ?? 0;
     if (end <= start) return null;
@@ -81,12 +83,8 @@ export function getSelectionContext(overlay: Overlay): SelectionContext | null {
       : range.commonAncestorContainer.parentElement;
   if (!container) return null;
   const host = editingHost(container);
-  let root: HTMLElement | null = host;
-  if (!root) {
-    let el: Element | null = container;
-    while (el && !BLOCKS.has(el.tagName)) el = el.parentElement;
-    root = (el as HTMLElement | null) ?? document.body;
-  }
+  if (!host || !isFreeText(host) || !host.contains(range.startContainer) || !host.contains(range.endContainer)) return null;
+  const root = host;
   const map = buildTextMap(root);
   const start = offsetFromPosition(map, range.startContainer, range.startOffset);
   const end = offsetFromPosition(map, range.endContainer, range.endOffset);
@@ -105,6 +103,27 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 export class SelectionActions {
+  static pageText(source: 'field' | 'selection', field: Editable | null): PageText | undefined {
+    if (source === 'selection') {
+      const active = document.activeElement;
+      if ((active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) && !isFreeText(active)) return undefined;
+      if (isTextControl(active)) {
+        const text = active.value.slice(active.selectionStart ?? 0, active.selectionEnd ?? 0);
+        return text.trim() ? { text, source } : undefined;
+      }
+      const selection = window.getSelection();
+      const anchor = selection?.anchorNode;
+      const host = anchor ? editingHost(anchor instanceof Element ? anchor : anchor.parentElement) : null;
+      if (!host || !isFreeText(host) || !selection?.focusNode || !host.contains(selection.focusNode) || !selection.rangeCount) return undefined;
+      const range = selection.getRangeAt(0); const map = buildTextMap(host);
+      const start = offsetFromPosition(map, range.startContainer, range.startOffset); const end = offsetFromPosition(map, range.endContainer, range.endOffset);
+      const text = map.text.slice(Math.min(start, end), Math.max(start, end));
+      return text.trim() ? { text, source } : undefined;
+    }
+    if (!field || !isFreeText(field)) return undefined;
+    const text = isTextControl(field) ? field.value : buildTextMap(field).text;
+    return text.trim() ? { text, source } : undefined;
+  }
   private synButton: HTMLButtonElement | null = null;
   private checkTimer = 0;
   private poll = 0;
@@ -137,16 +156,7 @@ export class SelectionActions {
 
   /** Text for the sidebar's "Use text from page field" / "Use selection" buttons. */
   pageText(source: 'field' | 'selection', field: Editable | null): PageText | undefined {
-    if (source === 'selection') {
-      const active = document.activeElement;
-      const text = isTextControl(active)
-        ? active.value.slice(active.selectionStart ?? 0, active.selectionEnd ?? 0)
-        : (window.getSelection()?.toString() ?? '');
-      return text.trim() ? { text, source } : undefined;
-    }
-    if (!field) return undefined;
-    const text = isTextControl(field) ? field.value : buildTextMap(field).text;
-    return text.trim() ? { text, source } : undefined;
+    return SelectionActions.pageText(source, field);
   }
 
   // ---- floating "Syn" button ------------------------------------------------------------------
@@ -196,7 +206,7 @@ export class SelectionActions {
       const ctx = getSelectionContext(this.overlay);
       if (!ctx) {
         // In a multi-frame page only the frame with the selection should speak up.
-        if (window === window.top) this.overlay.toast(action === 'synonyms' ? 'Select a word first.' : 'Select a sentence first.');
+        if (window === window.top) this.overlay.toast(action === 'synonyms' ? 'Select a word in a free-text editor.' : 'Select a sentence in a free-text editor.');
         return false;
       }
       this.hideSynButton();

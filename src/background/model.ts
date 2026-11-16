@@ -10,6 +10,7 @@ import {
   type PreTrainedModel,
 } from '@huggingface/transformers';
 import type { LoadState } from '../shared/types';
+import { inferenceJob } from './inference-queue';
 
 export interface SentenceScoreResult {
   meanLogProb: number;
@@ -85,7 +86,6 @@ export class TransformersLanguageModel implements LanguageModel {
   private files = new Map<string, { loaded: number; total: number }>();
   private scoreCache = new Map<string, SentenceScoreResult>();
   // Inference is serialized: ONNX Runtime's single WASM thread cannot run two sessions at once.
-  private chain: Promise<unknown> = Promise.resolve();
 
   constructor(private config: ModelConfig) {}
 
@@ -127,7 +127,7 @@ export class TransformersLanguageModel implements LanguageModel {
     try {
       const options = { dtype: 'q8' as const, device: this.config.device ?? ('wasm' as const), progress_callback: this.onProgress };
       const tokenizer = await AutoTokenizer.from_pretrained(id, { progress_callback: this.onProgress });
-      const model =
+      const model = await inferenceJob(async () =>
         kind === 'gpt2'
           ? // Xenova/distilgpt2 ships two quantized files: "model_quantized" (236 MB, the default
             // pick) and "decoder_model_merged_quantized" (85 MB). Prefer the small one; fall back
@@ -135,7 +135,8 @@ export class TransformersLanguageModel implements LanguageModel {
             await AutoModelForCausalLM.from_pretrained(id, { ...options, model_file_name: 'decoder_model_merged' }).catch(() =>
               AutoModelForCausalLM.from_pretrained(id, options),
             )
-          : await AutoModelForSeq2SeqLM.from_pretrained(id, options);
+          : await AutoModelForSeq2SeqLM.from_pretrained(id, options),
+      );
       this.state[kind] = 'ready';
       this.notify();
       return { id, tokenizer, model };
@@ -192,9 +193,7 @@ export class TransformersLanguageModel implements LanguageModel {
   }
 
   private serial<T>(job: () => Promise<T>): Promise<T> {
-    const run = this.chain.then(job, job);
-    this.chain = run.catch(() => undefined);
-    return run;
+    return inferenceJob(job);
   }
 
   async scoreSentences(sentences: string[]): Promise<SentenceScoreResult[]> {

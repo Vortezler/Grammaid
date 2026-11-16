@@ -74,6 +74,15 @@ describe('offset <-> Range round trips', () => {
   it('returns null for an empty map', () => {
     expect(rangeFromOffsets(buildTextMap(editable('')), 0, 1)).toBeNull();
   });
+  it('maps a caret in an empty paragraph and after a final paragraph', () => {
+    const root = editable('Hello<div><br></div>'); const map = buildTextMap(root);
+    expect(offsetFromPosition(map, root.lastElementChild!, 0)).toBe(6);
+    const emptyLine = rangeFromOffsets(map, 6, 6)!;
+    expect(emptyLine.startContainer).toBe(root.lastElementChild); expect(emptyLine.startOffset).toBe(0);
+    const paragraphs = editable('<p>Hello</p>'); const blockMap = buildTextMap(paragraphs);
+    const end = rangeFromOffsets(blockMap, blockMap.text.length, blockMap.text.length)!;
+    expect(end.startContainer).toBe(paragraphs); expect(end.startOffset).toBe(1);
+  });
 });
 
 describe('field detection', () => {
@@ -98,7 +107,8 @@ describe('field detection', () => {
     expect(findEditable(input('type="text" disabled'))).toBeNull();
     expect(findEditable(input('type="text" readonly'))).toBeNull();
     expect(findEditable(input('type="text" spellcheck="false"'))).toBeNull();
-    expect(findEditable(input('type="text"'))).not.toBeNull();
+    expect(findEditable(input('type="text" aria-label="Message"'))).not.toBeNull();
+    expect(findEditable(input('type="text"'))).toBeNull();
   });
 
   it('finds the outermost editing host', () => {
@@ -118,11 +128,11 @@ describe('findFields (auto-scan)', () => {
 
   it('finds every checkable, visible field once and skips the rest', () => {
     document.body.innerHTML =
-      '<textarea id="a"></textarea><input id="b" type="text"><input id="c" type="password"><input id="d" type="text" readonly>' +
+      '<textarea id="a"></textarea><input id="b" type="text" aria-label="Message"><input id="c" type="password"><input id="d" type="text" readonly>' +
       '<div id="e" contenteditable="true"><p><span contenteditable="true" id="inner">x</span></p></div>' +
       '<textarea id="hidden"></textarea><input id="f" type="email"><input id="g" type="checkbox">';
     for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g']) show(document.getElementById(id)!);
-    expect(findFields(document).map((el) => el.id)).toEqual(['a', 'b', 'e', 'f']);
+    expect(findFields(document).map((el) => el.id)).toEqual(['a', 'b', 'e']);
   });
 
   it('respects the field limit', () => {

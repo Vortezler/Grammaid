@@ -23,13 +23,16 @@
   };
 
   var actionListeners = [];
-  var TAB = { id: 1, url: location.href };
+  var TAB = { id: 1, url: location.href, title: document.title, active: true };
+  var frameIds = new WeakMap();
+  frameIds.set(window, 0);
+  var nextFrameId = 1;
 
-  function dispatch(roles, message, sender) {
+  function dispatch(roles, message, sender, frameId) {
     return new Promise(function (resolve, reject) {
       var pending = false;
       listeners.forEach(function (l) {
-        if (roles.indexOf(l.role) === -1 || pending) return;
+        if (roles.indexOf(l.role) === -1 || frameId !== undefined && l.frameId !== frameId) return;
         var out;
         try {
           out = l.fn(clone(message), sender || {});
@@ -37,6 +40,7 @@
           return;
         }
         if (out && typeof out.then === 'function') {
+          if (pending) { out.catch(function () {}); return; }
           pending = true;
           out.then(function (v) {
             resolve(clone(v));
@@ -47,24 +51,25 @@
     });
   }
 
-  window.__grammaidMakeBrowser = function (role) {
+  window.__grammaidMakeBrowser = function (role, frameWindow) {
+    var owner = frameWindow || window;
+    if (!frameIds.has(owner)) frameIds.set(owner, nextFrameId++);
+    var frameId = frameIds.get(owner);
     return {
       runtime: {
+        openOptionsPage: function () { window.open(location.origin + '/options.html', 'grammaid-settings'); return Promise.resolve(); },
         getURL: function (p) {
           return location.origin + '/' + p.replace(/^\//, '');
         },
         sendMessage: function (message) {
           // Like the real API: content scripts have a sender tab, extension pages do not.
-          return dispatch(['background'], message, role === 'content' ? { tab: TAB } : {});
+          return dispatch(['background'], message, role === 'content' ? { tab: TAB, frameId: frameId } : {});
         },
         onMessage: {
           addListener: function (fn) {
-            listeners.push({ role: role, fn: fn });
+            listeners.push({ role: role, frameId: frameId, fn: fn });
           },
         },
-      },
-      permissions: {
-        getAll: function () { return Promise.resolve({ permissions: [], origins: [] }); },
       },
       storage: {
         local: {
@@ -103,19 +108,27 @@
         },
       },
       tabs: {
-        create: function (options) {
-          window.open(options.url, '_blank', 'noopener,noreferrer');
-          return Promise.resolve({ url: options.url });
+        create: function (options) { window.open(options.url, '_blank'); return Promise.resolve({ id: 2, url: options.url }); },
+        executeScript: async function () {
+          var frames = [window];
+          document.querySelectorAll('iframe#frame').forEach(function (frame) { if (frame.contentWindow) frames.push(frame.contentWindow); });
+          await Promise.all(frames.map(function (frame) { return new Promise(function (resolve, reject) {
+            var script = frame.document.createElement('script'); script.src = location.origin + '/content.js'; script.onload = function () { resolve(); script.remove(); }; script.onerror = reject; frame.document.documentElement.append(script);
+          }); }));
+          return [];
         },
         query: function () {
+          TAB.title = document.title;
           return Promise.resolve([TAB]);
         },
+        update: function () { return Promise.resolve(TAB); },
         onRemoved: { addListener: function () {} },
         onUpdated: { addListener: function () {} },
-        sendMessage: function (_id, message) {
-          return dispatch(['content'], message);
+        sendMessage: function (_id, message, options) {
+          return dispatch(['content'], message, {}, options && options.frameId);
         },
       },
+      contentScripts: { register: async function () { return { unregister: async function () {} }; } },
       menus: {
         removeAll: function () {
           return Promise.resolve();

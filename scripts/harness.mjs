@@ -36,14 +36,15 @@ const TOOLBAR = `
 </div>
 <iframe id="gh-bg" src="/background.html" style="display:none" title="background"></iframe>
 <iframe id="gh-side" src="/sidebar.html" title="Grammaid sidebar"></iframe>
-<script src="/content.js"></script>`;
+`;
 
 /** Rewrites pages so each context gets the shim (and, for the playground, the extension itself). */
 function transform(urlPath, html) {
   if (urlPath === '/' || urlPath === '/playground.html') return html.replace('<head>', `<head>${shim}`).replace('</body>', `${TOOLBAR}</body>`);
-  if (urlPath === '/playground-frame.html') return html.replace('<head>', `<head>${shim}`).replace('</body>', '<script src="/content.js"></script></body>');
+  if (urlPath === '/playground-frame.html') return html.replace('<head>', `<head>${shim}`);
   if (urlPath === '/background.html') return html.replace('<!doctype html>', `<!doctype html><html data-grammaid-role="background">${shim}`);
   if (urlPath === '/sidebar.html') return html.replace('<html lang="en">', '<html lang="en" data-grammaid-role="sidebar">').replace('<head>', `<head>${shim}`);
+  if (urlPath === '/speech.html' || urlPath === '/options.html') return html.replace('<head>', `<head>${shim}`).replace('</body>', '<iframe src="/background.html" title="background" style="display:none"></iframe></body>');
   return html;
 }
 

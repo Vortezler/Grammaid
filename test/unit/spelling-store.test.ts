@@ -170,7 +170,7 @@ describe('settings', () => {
 });
 
 describe('activation: where Grammaid scans', () => {
-  const listed = { ...DEFAULT_SETTINGS, enabledSites: ['example.com'] };
+  const listed = { ...DEFAULT_SETTINGS, activationMode: 'sites' as const, enabledSites: ['example.com'] };
 
   it('is off by default, on every site', () => {
     expect(decide(DEFAULT_SETTINGS, 'https://example.com/', false)).toEqual({ active: false, site: false, tab: false, host: 'example.com' });

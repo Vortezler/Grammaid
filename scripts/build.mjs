@@ -26,8 +26,10 @@ const common = {
 const entries = [
   {
     ...common,
-    entryPoints: [r('src/background/index.ts')],
-    outfile: path.join(dist, 'background.js'),
+    entryPoints: { background: r('src/background/index.ts') },
+    outdir: dist,
+    splitting: true,
+    chunkNames: 'chunks/[name]-[hash]',
     format: 'esm',
     // Harper has a Node-only code path (guarded by a `process` check) that imports fs.
     external: ['fs', 'path', 'url', 'node:*'],
@@ -37,6 +39,8 @@ const entries = [
   },
   { ...common, entryPoints: [r('src/content/index.ts')], outfile: path.join(dist, 'content.js'), format: 'iife' },
   { ...common, entryPoints: [r('src/sidebar/index.tsx')], outfile: path.join(dist, 'sidebar.js'), format: 'esm' },
+  { ...common, entryPoints: [r('src/speech/index.tsx')], outfile: path.join(dist, 'speech.js'), format: 'esm' },
+  { ...common, entryPoints: [r('src/options/index.tsx')], outfile: path.join(dist, 'options.js'), format: 'esm' },
 ];
 
 async function copyStatic() {
@@ -55,7 +59,10 @@ async function copyStatic() {
   await copyFile(r('manifest.json'), path.join(dist, 'manifest.json'));
   await cp(r('icons'), path.join(dist, 'icons'), { recursive: true });
   await copyFile(r('src/sidebar/index.html'), path.join(dist, 'sidebar.html'));
+  await copyFile(r('src/speech/index.html'), path.join(dist, 'speech.html'));
+  await copyFile(r('src/options/index.html'), path.join(dist, 'options.html'));
   await copyFile(r('src/sidebar/styles.css'), path.join(dist, 'sidebar.css'));
+  await copyFile(r('src/sidebar/polish.css'), path.join(dist, 'polish.css'));
   await writeFile(
     path.join(dist, 'background.html'),
     '<!doctype html><meta charset="utf-8"><title>Grammaid background</title><script type="module" src="background.js"></script>\n',

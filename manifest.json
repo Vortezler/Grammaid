@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Grammaid",
-  "version": "1.2.0",
-  "description": "Local grammar, spelling, style, synonyms, rewriting, AI check and stats, plus optional online translation through Google Translate or Bing Translator.",
+  "version": "1.3.0",
+  "description": "Offline writing assistant with local speech to text, translation packs, grammar auto-correct, paced typing and writing suggestions.",
   "browser_specific_settings": {
     "gecko": {
       "id": "grammaid@extension.local",
@@ -10,9 +10,6 @@
       "data_collection_permissions": {
         "required": [
           "none"
-        ],
-        "optional": [
-          "websiteContent"
         ]
       }
     }
@@ -36,18 +33,7 @@
     "page": "background.html",
     "persistent": true
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "all_frames": true,
-      "run_at": "document_idle",
-      "js": [
-        "content.js"
-      ]
-    }
-  ],
+  "options_ui": { "page": "options.html", "open_in_tab": true, "browser_style": false },
   "browser_action": {
     "default_title": "Grammaid: click to check this tab",
     "default_icon": "icons/icon.svg"
@@ -59,6 +45,7 @@
     "open_at_install": false
   },
   "commands": {
+    "open-settings": { "description": "Open Grammaid settings in a tab" },
     "toggle-sidebar": {
       "suggested_key": {
         "default": "Alt+Shift+G"

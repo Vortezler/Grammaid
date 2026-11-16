@@ -130,3 +130,107 @@ on any site, the second to run WebAssembly in the background page.
   change scanning activation. Translation is a sixth sidebar tab; all tabs remain mounted.
 - **Release naming.** Version 1.2.0 uses tag `v1.2`, following the existing `v1` / `v1.1` release
   convention. The user authorized committing, pushing and publishing this version on 2026-11-13.
+
+## 1.3.0: local language library, corrections and interface refresh
+
+- **Local replaces online.** The prior website handoff is removed, along with its data
+  transmission permission. Results are generated and displayed inside the extension. A user
+  explicitly downloads each desired language pack; translation uses cached files only and
+  has no website or cloud fallback. Source language is explicit to avoid a separate detector.
+- **Per-language choices with shared weights.** A pack provides both directions with English.
+  OPUS-MT supplies dedicated world-language pairs and shared multilingual pairs where verified
+  language tokens exist. Seven native-script Indian languages use shared IndicTrans2 int8
+  encoder/decoder files. NLLB supplies Korean output. These models cannot be sliced into tiny
+  independent per-language weights; the UI discloses shared engines and exact sizes, reuses
+  files, and downloads only the dependencies of the user's selected pack. The Korean model's
+  CC BY-NC license appears before download. See `docs/TRANSLATION_MODELS.md` for attribution.
+- **Pinned files.** `translation-models.json` records immutable revisions, expected file names
+  and sizes. No remote code executes. Downloads are streamed, validated for expected length,
+  and marked installed only after complete IndexedDB writes. Complete files can resume after
+  interruption; incomplete current files restart. Removing a pack retains shared dependencies
+  used by other installed packs. Clearing models clears pack registrations as well.
+- **Runtime compatibility fixes found by real-model tests.** Transformers.js requires
+  `allowLocalModels=true` for cache-only loading; the fallback local path is extension-owned.
+  The v4 Marian wrapper bypasses its older language-prefix encoder override, so multilingual
+  target IDs are inserted explicitly from the tokenizer vocabulary. IndicTrans uses separate
+  source/target tokenizers and a local WASM encoder/cached-decoder loop in its native scripts.
+- **Bounded local inference.** Models load one at a time; inference shares a queue with writing
+  models. Non-English pairs pass through English locally. A 2,000-character input cap and
+  Unicode-safe token-bounded chunks control latency without silently truncating input.
+  Reaching generation limits returns an error. Lower-resource translation remains experimental.
+- **Suggestion popups.** Hovering an underline or pausing near an issue opens a card without
+  focusing it; clicking still focuses its controls. Geometry can be measured before the next
+  animation frame, so delayed painting does not drop a requested popup.
+- **Auto-correct is a setting, not per-fix confirmation.** Off by default; when enabled,
+  one concrete grammar/spelling fix or the first known wordy/redundant replacement can apply
+  automatically. Only a focused field edited by the user is changed, at word boundaries, after
+  a pause; at most 20 edits per batch. Selected text, IME composition and native undo/redo are
+  protected. Changes preserve caret/selection and scroll position. No AI rewrites are applied.
+- **Undo.** A notice and Alt+Shift+Z reverse the latest batch while its text is unchanged.
+  Inverse edits preserve surrounding markup; undo suppresses immediate re-correction.
+  Automatic changes do not increment manually accepted spelling statistics.
+- **Visual refresh.** Two-row navigation, mint/slate light and dark themes, softer cards,
+  visible keyboard focus, and an integrated translation editor, result card and pack library.
+- **Delivery state.** The combined 1.3.0 release was requested after speech, typing, local translation and UI work. See `docs/RELEASE_NOTES_v1.3.md` for the full release scope.
+- **Paced typing.** A single background coordinator pins an explicit user-selected tab/frame/
+  field; discovery uses nonce-bound reports and browser-provided sender identities. The content
+  controller owns insertion timers and validates field contents, focus, caret, visibility,
+  read-only/maxlength changes and editor acceptance on every step. Session IDs and monotonically
+  increasing report sequences prevent stale or unrelated frame reports from retargeting a job.
+  Start cancellation also stops a late-arriving content session. No draft is persisted.
+- **Timing and input.** Fresh cryptographic random samples feed bounded lognormal character
+  intervals, smooth word-level tempo changes, punctuation delays, occasional hesitations and
+  probabilistic sentence/paragraph pauses. Speed is approximate. Grapheme segmentation preserves
+  multilingual input; an older-browser fallback groups combining marks and common emoji clusters.
+  Normal insertText/native undo is preferred, with existing input-event fallbacks. No trusted-event
+  spoofing or history alteration. Human indistinguishability/detection bypass is not promised.
+- **Rich-editor compatibility.** Native trailing-space NBSP conversions are accepted without
+  accepting arbitrary rewrites. Element caret anchors cover empty paragraphs, explicit breaks and
+  positions after a final block. A native newline's placeholder break is accepted; other changes
+  stop the session. Autocorrect and suggestion popups are suppressed on actively typed fields.
+- **Local speech.** A separate optional 76 MiB q8 multilingual Whisper Base pack uses pinned
+  revision/file sizes and the shared model cache. No SpeechRecognition/browser cloud service.
+  Microphone permission/recording runs in a user-opened extension tab; sidebar audio-file import
+  is also available. Maximum 120 seconds/25 MB. MediaRecorder owns and releases tracks on stop,
+  discard, timeout, failure, navigation and late permission grants after cancellation. Browser
+  audio decoding/downmixing/resampling produces 16 kHz mono PCM, sent only to the local background.
+- **Cache-only ASR loading.** The Transformers.js v4 pipeline helper probes main metadata before
+  forwarding its local-only options. Construct its public tokenizer, processor, speech model
+  and pipeline components directly, with the pinned revision and local_files_only on each loader.
+  A real-model Node CPU test blocks both fetch paths and asserts zero attempted requests. The
+  built browser/WASM path was separately verified with imported audio.
+- **Conservative speech cleanup.** Whisper supplies punctuation; acoustic segment gaps after
+  sentence boundaries can add paragraphs. English-only hesitation removal, whitespace/casing and
+  final marks are optional. Never delete ambiguous phrases, paraphrase, censor profanity/slurs
+  or change the original model transcript. Keep the original result separate from formatted text,
+  including CJK spacing; reapply only by explicit action. Model misrecognition remains possible.
+  The language list comes from this model's 99 tokens, not the translation library's 22 scheduled
+  Indian-language promise. Near silence is rejected, cancellation is checked between model steps,
+  and reaching the decoder segment cap errors instead of silently returning a truncated transcript.
+- **Speech privacy.** No audio/transcription history or persisted drafts. Only model blobs are
+  stored. The microphone stays off until explicit Start; Stop releases it before inference.
+  Settings clear-models unloads the speech engine too; an active speech job/download blocks it.
+
+## 1.3.0 final UI, activation and field privacy
+
+- Settings uses `options_ui` with `open_in_tab`, launched only by explicit commands. The sidebar
+  retains writing tools and a Settings link. A standalone responsive rail/page shares the same
+  settings component; it does not try to activate its own extension tab. Gloss is limited to
+  quiet gradients/highlights, rectangular controls, brief motion and reduced-motion overrides.
+- The manifest no longer injects a content script on every site. `contentScripts.register` is
+  scoped to automatic-site domains; `tabs.executeScript` handles manual page actions. Click-only
+  mode overrides saved sites. Navigation revokes manual approval. Disabling stops watchers,
+  disconnects observers and destroys the overlay. Typing listeners exist only during a session.
+- The background entry contains command routing, settings, stats and activation. Heavy engines
+  are imported from local split chunks only when requested. Startup no longer warms Harper.
+  Opening settings/model status does not initialize an engine. The lightweight background router
+  remains registered to receive clicks; this is not a claim that the browser unloads the extension.
+- A shared structural policy guards extraction, selection, checking, replacement and typing.
+  It uses HTML attributes, associated static labels, form owners/actions, auth/payment controls
+  and ancestor metadata, never field values or screenshots for classification. Email, password,
+  address, payment, account/identity/contact and structured validation/input modes are blocked.
+  Unknown single-line text inputs require a positive free-text purpose. Read-only selections are
+  excluded. Policy is rechecked during jobs and metadata mutations remove tracked fields.
+- Metadata cannot prove a site's intent. No claim that a mislabeled textarea or sensitive prose
+  intentionally entered in a free-text editor can be identified without inspecting its contents.
+  Unit tests use throwing value getters to verify blocked fields are never read by these paths.

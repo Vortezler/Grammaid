@@ -1,0 +1,701 @@
+{
+  "Xenova/opus-mt-en-es": {
+    "revision": "4b002a4c7edd54a7ced58877258b87f7efd3f892",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1468
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6262682
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52899742
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 60212804
+      }
+    ]
+  },
+  "Xenova/opus-mt-es-en": {
+    "revision": "eadfd7c658a9d8929ac3b8e996b68a68e2c7d480",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1433
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6262682
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52899742
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 60212804
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-fr": {
+    "revision": "28726206f80896b90035bd99cccd5cc1e151f916",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1411
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 5637839
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 50090398
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 57381512
+      }
+    ]
+  },
+  "Xenova/opus-mt-fr-en": {
+    "revision": "6b166a182780e118c997879d0ad5be4b53671644",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1411
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 5637839
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 50090398
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 57381512
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-de": {
+    "revision": "1ca130c44c4c5441ef16d48aae521a424ab644f7",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1411
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 5498450
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 49366942
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 56652404
+      }
+    ]
+  },
+  "Xenova/opus-mt-de-en": {
+    "revision": "399dfd68706739fffd503f876093e455ae268a06",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1376
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 5498450
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 49366942
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 56652404
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-ru": {
+    "revision": "e050376e960175e8ddc5cff85025dc8436cddd68",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1376
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 7205388
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 51628446
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 58931576
+      }
+    ]
+  },
+  "Xenova/opus-mt-ru-en": {
+    "revision": "afe8c6c738ec81b6d033fd8f44f9678a639a7c67",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1376
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 7205388
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 51628446
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 58931576
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-nl": {
+    "revision": "c3a0541231a7329b4492809fc2bd7ab7d2ceb0bc",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1376
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6433167
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 53937565
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 61258735
+      }
+    ]
+  },
+  "Xenova/opus-mt-nl-en": {
+    "revision": "82c42d95d1508037cbe7172d85fd4e940a2f3584",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1376
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6433167
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 53937566
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 61258736
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-hi": {
+    "revision": "7aad72006a1588a9c3485ed6203aed99eebbc872",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1389
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6679560
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 51337630
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 58638488
+      }
+    ]
+  },
+  "Xenova/opus-mt-hi-en": {
+    "revision": "99853100ed9d932987a6816e8cf7b1b6742a6116",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1376
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6578153
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 50916254
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 58213820
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-zh": {
+    "revision": "046f55aec303cdee3e0318604406d4df20f1e8ea",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1503
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6380952
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52899742
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 60212804
+      }
+    ]
+  },
+  "Xenova/opus-mt-zh-en": {
+    "revision": "39d480d52a9ea3065a1f117adfe4dbc55de10e6f",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1389
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6381339
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52899742
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 60212804
+      }
+    ]
+  },
+  "Xenova/opus-mt-ja-en": {
+    "revision": "1a906cfaaf7c8f4193f67f5885c082aa6dbd9d16",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1376
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 5991485
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 280
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 50705822
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 58001744
+      }
+    ]
+  },
+  "Xenova/opus-mt-ko-en": {
+    "revision": "d9fa1ac6008242100fecb4fff9b0a5917a1be81f",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1389
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6487044
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52899741
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 60212803
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-ROMANCE": {
+    "revision": "9d2ba69ac80c8e8453c3d9a1e2323a0e7b8ca3cd",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1508
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6117691
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 503
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52899742
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 60212804
+      }
+    ]
+  },
+  "Xenova/opus-mt-ROMANCE-en": {
+    "revision": "f60feaabe8bb435a5871e7702b25f53a01e770f8",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1361
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6120151
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 503
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52899741
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 60212803
+      }
+    ]
+  },
+  "Xenova/opus-mt-en-mul": {
+    "revision": "e57f9759f8e1e9ed97067bfc11e53e1eab63e57e",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1390
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6081943
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52443550
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 59753048
+      }
+    ]
+  },
+  "Xenova/opus-mt-mul-en": {
+    "revision": "72a05e47cee89c718a9db4dc70d02fef3bc39de8",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1390
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 293
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 6089424
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 282
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 52475294
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 59785040
+      }
+    ]
+  },
+  "Xenova/nllb-200-distilled-600M": {
+    "revision": "261c31d1a5732c67cdd16d80e8d6088507c7ccea",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 873
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 189
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 17331224
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 544
+      },
+      {
+        "name": "onnx/encoder_model_quantized.onnx",
+        "bytes": 419120483
+      },
+      {
+        "name": "onnx/decoder_model_merged_quantized.onnx",
+        "bytes": 475505771
+      }
+    ]
+  },
+  "hari31416/indictrans2-en-indic-dist-200M-ONNX-int8": {
+    "revision": "1eaa43a3fb76f382f1b22c76e56f6ab4926ad68b",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1371
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 163
+      },
+      {
+        "name": "tokenizer_src.json",
+        "bytes": 3906621
+      },
+      {
+        "name": "tokenizer_tgt.json",
+        "bytes": 23869629
+      },
+      {
+        "name": "tokenizer_meta.json",
+        "bytes": 70
+      },
+      {
+        "name": "encoder_model.onnx",
+        "bytes": 831399
+      },
+      {
+        "name": "encoder_model.onnx.data",
+        "bytes": 73791488
+      },
+      {
+        "name": "decoder_model.onnx",
+        "bytes": 2037502
+      },
+      {
+        "name": "decoder_with_past_model.onnx",
+        "bytes": 1850479
+      },
+      {
+        "name": "decoder_shared.onnx.data",
+        "bytes": 203048944
+      }
+    ]
+  },
+  "hari31416/indictrans2-indic-en-dist-200M-ONNX-int8": {
+    "revision": "a7ecdc0ba73148c6e1d051ca372332471d8aff4f",
+    "files": [
+      {
+        "name": "config.json",
+        "bytes": 1370
+      },
+      {
+        "name": "generation_config.json",
+        "bytes": 163
+      },
+      {
+        "name": "tokenizer_src.json",
+        "bytes": 23876630
+      },
+      {
+        "name": "tokenizer_tgt.json",
+        "bytes": 3899748
+      },
+      {
+        "name": "tokenizer_meta.json",
+        "bytes": 70
+      },
+      {
+        "name": "encoder_model.onnx",
+        "bytes": 831436
+      },
+      {
+        "name": "encoder_model.onnx.data",
+        "bytes": 120068096
+      },
+      {
+        "name": "decoder_model.onnx",
+        "bytes": 1585382
+      },
+      {
+        "name": "decoder_with_past_model.onnx",
+        "bytes": 1398395
+      },
+      {
+        "name": "decoder_shared.onnx.data",
+        "bytes": 110052040
+      }
+    ]
+  }
+}

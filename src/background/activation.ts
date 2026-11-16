@@ -1,17 +1,18 @@
 // Decides where Grammaid scans. It is off by default and runs in a tab only when
-//   (a) the tab's site is on the user's list (Settings), or
-//   (b) the user clicked the toolbar button in that tab (lasts until the tab is closed).
+//   (a) automatic-site mode is selected and the site is listed, or
+//   (b) the user clicked the toolbar button on this page (revoked at navigation).
 // The toolbar badge shows "on" wherever it is running.
 import type { Activation, ContentRequest } from '../shared/types';
 import { hostOf, isSiteEnabled, type Settings } from '../shared/settings';
 import { getSettings, onSettingsChanged } from './settings';
+import { ensureContent } from './injection';
 
 type TabLike = { id?: number; url?: string };
 
 /** Pure decision, kept separate so it can be unit-tested. */
 export function decide(settings: Settings, url: string | undefined, tabOn: boolean): Activation {
   const host = hostOf(url);
-  const site = isSiteEnabled(settings, host);
+  const site = settings.activationMode === 'sites' && isSiteEnabled(settings, host);
   return { active: settings.enabled && (site || tabOn), site, tab: tabOn, host };
 }
 
@@ -45,12 +46,15 @@ async function notify(tab: TabLike, announce: boolean): Promise<Activation> {
   if (tab.id !== undefined) {
     const message: ContentRequest = { type: 'activation-changed', activation, announce };
     // Reaches every frame of the tab; pages without a content script (about:, AMO) just reject.
-    browser.tabs.sendMessage(tab.id, message).catch(() => undefined);
+    try {
+      if (activation.active) await ensureContent(tab.id);
+      await browser.tabs.sendMessage(tab.id, message);
+    } catch { /* protected pages cannot be injected */ }
   }
   return activation;
 }
 
-/** Toolbar click (or the sidebar's button): switch scanning on or off for this tab. */
+/** A manual approval is scoped to this page and is cleared by navigation. */
 export async function toggleTab(tab: TabLike | undefined): Promise<Activation> {
   if (!tab || tab.id === undefined) return activationFor(tab);
   if (activeTabs.has(tab.id)) activeTabs.delete(tab.id);
@@ -72,14 +76,28 @@ export function registerActivation(): void {
   browser.tabs.onRemoved.addListener((tabId) => {
     activeTabs.delete(tabId);
   });
-  // Navigation resets the per-tab badge, so repaint it whenever a tab finishes loading.
+  // No all-page content script registration. Automatic injection is scoped to listed sites.
+  let registration: browser.contentScripts.RegisteredContentScript | null = null;
+  let sync = Promise.resolve();
+  const synchronize = (settings: Settings) => {
+    sync = sync.catch(() => undefined).then(async () => {
+      await registration?.unregister(); registration = null;
+      if (settings.enabled && settings.activationMode === 'sites' && settings.enabledSites.length) {
+        registration = await browser.contentScripts.register({ matches: settings.enabledSites.map((site) => `*://*.${site}/*`), allFrames: true, runAt: 'document_idle', js: [{ file: 'content.js' }] });
+      }
+      const tabs = await browser.tabs.query({});
+      for (const tab of tabs) await notify(tab, false);
+    }).catch((error) => console.warn('Grammaid: activation update failed', error));
+    return sync;
+  };
+  void getSettings().then(synchronize);
   browser.tabs.onUpdated.addListener((_id, change, tab) => {
-    if (change.status === 'complete' || change.url) void activationFor(tab).then((a) => paintBadge(tab, a));
+    if (change.status === 'loading') { activeTabs.delete(_id); void notify(tab, false); }
+    if (change.status === 'complete') void notify(tab, false);
   });
   // A change to the site list (or the master switch) takes effect in open tabs at once.
-  onSettingsChanged(() => {
-    void browser.tabs.query({}).then((tabs) => {
-      for (const tab of tabs) void notify(tab, false);
-    });
+  onSettingsChanged((next, previous) => {
+    if (!next.enabled || next.activationMode !== previous.activationMode) activeTabs.clear();
+    void synchronize(next);
   });
 }

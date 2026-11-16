@@ -5,10 +5,11 @@
 // or the user clicked the toolbar button in this tab. While active, every text field in the page
 // is checked automatically. Synonyms/Rephrase from the context menu work anywhere, because the
 // user asked for them explicitly.
-import { send, type Activation, type ContentRequest, type PageText } from '../shared/types';
+import { send, type Activation, type ContentRequest } from '../shared/types';
 import { FieldWatcher } from './field-watcher';
 import { Overlay } from './overlay';
 import { SelectionActions } from './selection-actions';
+import { FieldTyper } from './typing';
 
 declare global {
   interface Window {
@@ -24,6 +25,8 @@ function main() {
   let overlay: Overlay | null = null;
   let watcher: FieldWatcher | null = null;
   let actions: SelectionActions | null = null;
+  let typer: FieldTyper | null = null;
+  const typing = () => typer ??= new FieldTyper((status) => { void send({ type: 'typing-status-report', status }); });
 
   /** Overlay and selection actions are created on first need; they cost nothing until then. */
   const ui = () => {
@@ -43,10 +46,11 @@ function main() {
       u.watcher.start();
       u.actions.start();
       if (was) u.watcher.recheck(); // settings changed while running
-    } else if (was) {
+    } else {
       watcher?.stop();
       actions?.stop();
       overlay?.closeSurface(true);
+      overlay?.destroy(); overlay = null; watcher = null; actions = null;
     }
   };
 
@@ -66,14 +70,25 @@ function main() {
     }
   });
 
-  browser.runtime.onMessage.addListener((message: unknown): Promise<PageText | boolean> | undefined => {
+  browser.runtime.onMessage.addListener((message: unknown): Promise<unknown> | undefined => {
     try {
       const req = message as ContentRequest | null;
       if (!req || typeof req !== 'object') return undefined;
+      if (req.type === 'typing-discover') {
+        void send({ type: 'typing-targets-report', nonce: req.nonce, fields: typing().fieldsOnPage(), frame: window === window.top ? 'Main page' : `${location.hostname || 'Embedded'} frame` });
+        return Promise.resolve(true);
+      }
+      if (req.type === 'typing-locate') return Promise.resolve(typing().locate(req.fieldId));
+      if (req.type === 'typing-start-in-field') {
+        try { return Promise.resolve(typing().start(req.jobId, req.fieldId, req.text, req.options)); }
+        catch (error) { return Promise.reject(error); }
+      }
+      if (req.type === 'typing-control-in-field') return Promise.resolve(typing().control(req.jobId, req.action));
+      if (req.type === 'typing-get-state') return Promise.resolve(typer?.statusFor(req.jobId) ?? null);
       if (req.type === 'activation-changed') {
         apply(req.activation);
         // Only the top frame speaks, so a page with iframes shows one toast.
-        if (req.announce && window === window.top) {
+        if (req.announce && req.activation.active && window === window.top) {
           ui().overlay.toast(
             req.activation.active
               ? 'Grammaid is on in this tab'
@@ -89,8 +104,7 @@ function main() {
       }
       if (req.type === 'get-page-text') {
         // Frames with nothing to offer stay silent so the frame that has the text can answer.
-        const u = ui();
-        const text = u.actions.pageText(req.source, u.watcher.currentField ?? lastFocusedField());
+        const text = SelectionActions.pageText(req.source, watcher?.currentField ?? lastFocusedField());
         return text ? Promise.resolve(text) : undefined;
       }
     } catch (e) {
@@ -105,6 +119,7 @@ function main() {
     return el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement || (el instanceof HTMLElement && el.isContentEditable) ? el : null;
   }
 }
+
 
 try {
   main();

@@ -24,13 +24,13 @@
     <textarea id="ta" placeholder="Textarea">I definately recieved teh letter. It was a very good letter, and in order to reply I made a decision to write back.</textarea>
 
     <h2>2. Text input</h2>
-    <input id="in" type="text" placeholder="Text input" value="I definately recieved teh letter" />
+    <input id="in" type="text" aria-label="Message" placeholder="Text input" value="I definately recieved teh letter" />
 
     <h2>3. Contenteditable</h2>
     <div id="ce" contenteditable="true">I <b>definately</b> recieved teh letter.<br />The report was written by the team in order to explain the end result.</div>
 
     <h2>4. React-style controlled input (value is re-applied from state on every input event)</h2>
-    <input id="controlled" type="text" placeholder="Controlled input" />
+    <input id="controlled" type="text" aria-label="Draft" placeholder="Controlled input" />
     <p id="controlled-state" style="font-size: 12px; color: #666">state: ""</p>
 
     <h2>5. Iframe containing a contenteditable</h2>
@@ -38,9 +38,12 @@
 
     <h2>6. Fields that must never be checked</h2>
     <input type="password" placeholder="Password (never checked)" value="definately" />
+    <input id="private-card" type="text" autocomplete="cc-number" aria-label="Card number" value="4242424242424242" />
+    <input id="private-address" type="text" autocomplete="street-address" aria-label="Street address" value="Test address" />
+    <input id="private-user" type="text" name="username" aria-label="Username" value="test-user" />
     <input type="text" spellcheck="false" placeholder='spellcheck="false" (never checked)' value="definately" style="margin-top: 6px" />
 
-    <h2>7. Read-only page text (select a word for Synonyms, or a sentence for Rephrase)</h2>
+    <h2>7. Read-only page text (excluded from page-text import and selection actions)</h2>
     <p class="read">It was an important decision for the running team. Due to the fact that the weather was bad, the game was cancelled by the organizers at the last minute.</p>
 
     <script>
